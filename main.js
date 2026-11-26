@@ -36,10 +36,11 @@ const showPhone=p=>{const d=String(p||'').replace(/\D/g,'');return d.startsWith(
 
 // المنيو
 const pic=it=>it.img?`<img src="img/${it.img}.jpg" alt="${esc(it.n)}" loading="lazy">`:CUP;
-const card=i=>`<button class="item" data-id="${i.id}"><div class="ph">${pic(i)}${i.tag?`<span class="tag">${i.tag}</span>`:''}</div><div class="info"><h3>${i.n}</h3><span class="en lat">${i.en}</span>${i.d?`<p>${i.d}</p>`:''}<div class="row"><span class="price">${sar(i.p)}</span><span class="plus" aria-hidden="true">+</span></div></div></button>`;
-const rowi=i=>`<button class="li" data-id="${i.id}"><span class="nm"><b>${i.n}</b><span class="en lat">${i.en}</span></span><span class="price">${sar(i.p)}</span><span class="plus" aria-hidden="true">+</span></button>`;
+const from=i=>i.pick?'<small>من</small> ':'';
+const card=i=>`<button class="item" data-id="${i.id}"><div class="ph">${pic(i)}${i.tag?`<span class="tag">${i.tag}</span>`:''}</div><div class="info"><h3>${i.gn||i.n}</h3><span class="en lat">${i.gen||i.en}</span>${i.d?`<p>${i.d}</p>`:''}<div class="row"><span class="price">${from(i)}${sar(i.p)}</span><span class="plus" aria-hidden="true">+</span></div></div></button>`;
+const rowi=i=>`<button class="li" data-id="${i.id}"><span class="nm"><b>${i.gn||i.n}</b><span class="en lat">${i.gen||i.en}</span></span><span class="price">${from(i)}${sar(i.p)}</span><span class="plus" aria-hidden="true">+</span></button>`;
 $('#chips').innerHTML=M.cats.map((c,i)=>`<a href="#${c.id}" class="${i?'':'on'}">${c.n}</a>`).join('');
-$('#menu').innerHTML=M.cats.map(c=>{const its=M.items.filter(i=>i.c==c.id),ph=its.filter(i=>i.img),tx=its.filter(i=>!i.img);return `<section class="cat" id="${c.id}"><h2>${c.n}</h2><p class="sub">${c.s}</p><div class="body${ph.length?'':' nophoto'}">${ph.length?`<div class="grid">${ph.map(card).join('')}</div>`:''}${tx.length?`<div class="list">${tx.map(rowi).join('')}</div>`:''}</div></section>`}).join('');
+$('#menu').innerHTML=M.cats.map(c=>{const its=M.items.filter(i=>i.c==c.id&&!i.hide),ph=its.filter(i=>i.img),tx=its.filter(i=>!i.img);return `<section class="cat" id="${c.id}"><h2>${c.n}</h2><p class="sub">${c.s}</p><div class="body${ph.length?'':' nophoto'}">${ph.length?`<div class="grid">${ph.map(card).join('')}</div>`:''}${tx.length?`<div class="list">${tx.map(rowi).join('')}</div>`:''}</div></section>`}).join('');
 const chipEls=[...document.querySelectorAll('#chips a')];
 const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting)chipEls.forEach(a=>a.classList.toggle('on',a.getAttribute('href')=='#'+e.target.id))}),{rootMargin:'-45% 0px -50% 0px'});
 document.querySelectorAll('section.cat').forEach(s=>io.observe(s));
@@ -183,6 +184,7 @@ renderType();
 // الصنف
 $('#menu').onclick=e=>{const b=e.target.closest('.item,.li');if(b)openItem(M.items.find(i=>i.id==b.dataset.id))};
 function openItem(it){
+ if(it.pick)return openPick(it);
  let q=1;const opts=it.noOpt?[]:Object.entries(M.options);
  open(`${head(it.n,`<span class="lat">${it.en}</span>`)}
  ${it.img?`<img class="simg" src="img/${it.img}.jpg" alt="">`:''}${it.d?`<p style="margin:6px 0 0;color:var(--mute)">${it.d}</p>`:''}
@@ -196,6 +198,20 @@ function openItem(it){
  sheet.onchange=upd;
  sheet.onclick=ev=>{if(ev.target.closest('[data-x]'))return close();const d=ev.target.closest('[data-q]');if(d){q=Math.max(1,q+ +d.dataset.q);upd()}
   if(ev.target.closest('#add')){cart.push({id:it.id,n:it.n,opt:pick().map(c=>c[0]).join('، '),o:Object.fromEntries(opts.map(([k])=>[k,idx(k)])),q,u:unit()});save();close()}};
+}
+// خانة وحدة تجمع أكثر من صنف: العميل يختار (الحجم أو حار/بارد) ونضيف الصنف الصحيح بسعره
+function openPick(g){
+ let q=1;const P=g.pick,byId=id=>M.items.find(i=>i.id===id),one=P.dims.length===1;
+ open(`${head(g.gn||g.n,`<span class="lat">${g.gen||g.en}</span>`)}
+ ${g.img?`<img class="simg" src="img/${g.img}.jpg" alt="">`:''}${g.d?`<p style="margin:6px 0 0;color:var(--mute)">${g.d}</p>`:''}
+ ${P.dims.map((d,k)=>`<fieldset><legend>${d.n} <small style="color:var(--mute);font-weight:400">(مطلوب)</small></legend><div class="opts">${d.ch.map((l,j)=>`<label><input type="radio" name="d_${k}" value="${j}" ${j?'':'checked'}>${l}${one?` <small>${sar(byId(P.map[j]).p)}</small>`:''}</label>`).join('')}</div></fieldset>`).join('')}
+ <fieldset><legend>الكمية</legend><div class="qty"><button data-q="-1" aria-label="أقل">−</button><b id="q">1</b><button data-q="1" aria-label="أكثر">+</button></div></fieldset>
+ <button class="go" id="add"><span>أضف للسلة</span><span id="tot"></span></button>`);
+ const cur=()=>byId(P.map[P.dims.map((d,k)=>{const r=sheet.querySelector(`input[name=d_${k}]:checked`);return r?+r.value:0}).join(',')]);
+ const upd=()=>{$('#q').textContent=q;$('#tot').textContent=sar(cur().p*q)};upd();
+ sheet.onchange=upd;
+ sheet.onclick=ev=>{if(ev.target.closest('[data-x]'))return close();const d=ev.target.closest('[data-q]');if(d){q=Math.max(1,q+ +d.dataset.q);upd()}
+  if(ev.target.closest('#add')){const it=cur();cart.push({id:it.id,n:it.n,opt:'',o:{},q,u:it.p});save();close()}};
 }
 function save(){store.set('cart',cart);$('#count').textContent=cart.reduce((a,c)=>a+c.q,0)}
 const total=()=>cart.reduce((a,c)=>a+c.u*c.q,0);
