@@ -1,6 +1,8 @@
 // المنيو. لتغيير سعر أو إضافة صنف عدّل هذا الملف.
 // img: اسم الصورة في مجلد img بدون .jpg (اختياري)
 // السكر يطلع لكل مشروب، إلا اللي عليه noOpt: 1 (القهوة السادة والحلى).
+// pick: يجمع أكثر من صنف في خانة وحدة (مثل الحجم أو حار/بارد). الأصناف المجموعة عليها hide: 1،
+//   وتبقى بأسمائها وأسعارها عشان الكاشير والسيرفر يشوفون الصنف بالضبط. لازم تكون noOpt: 1.
 window.JOCKEY_MENU = {
   options: {
     sugar: { n: 'السكر', req: true, choices: [['بدون سكر', 0], ['خفيف', 0], ['وسط', 0], ['زيادة', 0]] }
@@ -19,10 +21,16 @@ window.JOCKEY_MENU = {
     { id: 'amer', c: 'black', n: 'أمريكانو', en: 'Americano', p: 14 },
     { id: 'iamer', c: 'black', n: 'أمريكانو بارد', en: 'Iced Americano', p: 15 },
     { id: 'fred', c: 'black', n: 'إسبريسو الفريدو', en: 'Espresso Freddo', p: 18 },
-    { id: 'cod', c: 'black', n: 'قهوة اليوم', en: 'Coffee of the Day', p: 11, noOpt: 1 },
-    { id: 'codl', c: 'black', n: 'قهوة اليوم كبير', en: 'Coffee of the Day (L)', p: 13, noOpt: 1 },
-    { id: 'v60h', c: 'black', n: 'V60 حار', en: 'V60 Hot', p: 20, noOpt: 1 },
-    { id: 'v60i', c: 'black', n: 'V60 بارد', en: 'V60 Iced', p: 21, noOpt: 1 },
+    { id: 'cod', c: 'black', n: 'قهوة اليوم حار', en: 'Coffee of the Day', gn: 'قهوة اليوم', gen: 'Coffee of the Day', p: 11, noOpt: 1,
+      pick: { dims: [{ n: 'الحجم', ch: ['صغير', 'كبير'] }, { n: 'حار ولا بارد؟', ch: ['حار', 'بارد'] }],
+        map: { '0,0': 'cod', '1,0': 'codl', '0,1': 'codi', '1,1': 'codil' } } },
+    { id: 'codl', c: 'black', n: 'قهوة اليوم كبير حار', en: 'Coffee of the Day (L)', p: 13, noOpt: 1, hide: 1 },
+    // البارد مو في منيو الكافيه: حطيناه بنفس سعر الحار بطلب حامد، لين يأكد المالك
+    { id: 'codi', c: 'black', n: 'قهوة اليوم بارد', en: 'Iced Coffee of the Day', p: 11, noOpt: 1, hide: 1 },
+    { id: 'codil', c: 'black', n: 'قهوة اليوم كبير بارد', en: 'Iced Coffee of the Day (L)', p: 13, noOpt: 1, hide: 1 },
+    { id: 'v60h', c: 'black', n: 'V60 حار', en: 'V60 Hot', gn: 'V60', gen: 'Hot · Iced', p: 20, noOpt: 1,
+      pick: { dims: [{ n: 'حار ولا بارد؟', ch: ['حار', 'بارد'] }], map: { '0': 'v60h', '1': 'v60i' } } },
+    { id: 'v60i', c: 'black', n: 'V60 بارد', en: 'V60 Iced', p: 21, noOpt: 1, hide: 1 },
     { id: 'cort', c: 'milk', n: 'كورتادو', en: 'Cortado', p: 14 },
     { id: 'mac', c: 'milk', n: 'ماكياتو', en: 'Macchiato', p: 14 },
     { id: 'flat', c: 'milk', n: 'فلات وايت', en: 'Flat White', p: 16 },
