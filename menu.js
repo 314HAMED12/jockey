@@ -6,13 +6,13 @@ window.JOCKEY_MENU = {
     sugar: { n: 'السكر', req: true, choices: [['بدون سكر', 0], ['خفيف', 0], ['وسط', 0]] }
   },
   cats: [
-    { id: 'sig', n: 'المشروبات المميزة', s: 'توقيع جوكي' },
+    { id: 'sig', n: 'المشروبات المميزة', s: 'توقيع JOCKEY' },
     { id: 'black', n: 'المشروبات السوداء', s: 'قهوة مختصة بدون حليب' },
     { id: 'milk', n: 'المشروبات بالحليب', s: 'إسبريسو مع حليب مبخر' },
     { id: 'sweet', n: 'الحلى', s: 'يمشي مع أي فنجان' }
   ],
   items: [
-    { id: 'iced', c: 'sig', n: 'آيس جوكي', en: 'Iced Jockey', d: 'مشروب الكافيه المميز.', p: 24, img: 'iced', tag: 'توقيع الكافيه' },
+    { id: 'iced', c: 'sig', n: 'آيس JOCKEY', en: 'Iced Jockey', d: 'مشروب الكافيه المميز.', p: 24, img: 'iced', tag: 'توقيع الكافيه' },
     { id: 'mat', c: 'sig', n: 'ماتشا', en: 'Matcha', d: 'ماتشا ترابية مع كريمة ناعمة ولمسة حلا.', p: 24, img: 'matcha', tag: 'جديد' },
     { id: 'fredS', c: 'sig', n: 'إسبريسو الفريدو', en: 'Espresso Freddo', d: 'إسبريسو مخفوق على ثلج.', p: 16 },
     { id: 'esp', c: 'black', n: 'إسبريسو', en: 'Espresso', d: 'شوت مركز بكريمة كثيفة.', p: 12, img: 'espresso' },
