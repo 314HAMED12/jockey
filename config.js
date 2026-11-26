@@ -9,5 +9,5 @@ window.JOCKEY_CONFIG = {
   ADDRESS: 'الهيئة الملكية، حي البثنة (مكان فدركرز سابقًا)',
   HOURS: 'من 1 الظهر إلى 12 الليل',
   INSTAGRAM: 'jockeycoffeesa',
-  POINTS: false             // محفظة النقاط: true يشغلها، false يخفيها
+  POINTS: true              // محفظة النقاط: true يشغلها، false يخفيها
 };
