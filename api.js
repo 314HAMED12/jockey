@@ -3,30 +3,83 @@
   const C = window.JOCKEY_CONFIG;
   const live = !!(C.SUPABASE_URL && C.SUPABASE_ANON_KEY && window.supabase);
   const STATUS = { new: 'وصل الطلب', accepted: 'انقبل', ready: 'جاهز للاستلام', done: 'تم التسليم', cancelled: 'ملغي' };
+  const DEFAULTS = { points_enabled: true, earn_per_100: 10 };
+  const earnFor = (amount, s) => (s.points_enabled ? Math.floor((amount * s.earn_per_100) / 100 + 1e-9) : 0);
 
   // ---------- وضع التجربة (localStorage) ----------
-  const KEY = 'jockey_orders_v1';
-  const read = () => { try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch (e) { return []; } };
-  const write = (a) => { try { localStorage.setItem(KEY, JSON.stringify(a)); } catch (e) {} };
+  const KEY = 'jockey_orders_v1', CK = 'jockey_customers_v1', SK = 'jockey_session_v1', STK = 'jockey_settings_v1';
+  const jget = (k, d) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } };
+  const jset = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
+  const read = () => jget(KEY, []);
+  const write = (a) => jset(KEY, a);
   const uid = () => Math.random().toString(36).slice(2) + Date.now().toString(36);
+  const now = () => new Date().toISOString();
+  let pending = null; // الكود اللي "أرسلناه" في وضع التجربة
+
   const demo = {
     async placeOrder(o) {
       const a = read(); const no = (a.reduce((m, x) => Math.max(m, x.no), 100)) + 1;
-      const row = Object.assign({ id: uid(), no, token: uid(), status: 'new', created_at: new Date().toISOString() }, o);
-      a.push(row); write(a); return { no, token: row.token };
+      const s = await demo.getSettings(); const cs = jget(CK, {}); const ph = jget(SK, null); const c = ph && cs[ph];
+      const sub = Math.round((o.subtotal ?? o.total) * 100) / 100;
+      const use = c && s.points_enabled ? Math.max(0, Math.min(o.use_points | 0, c.points, Math.floor(sub))) : 0;
+      const row = Object.assign({}, o, {
+        id: uid(), no, token: uid(), status: 'new', created_at: now(),
+        subtotal: sub, total: sub - use, points_used: use, points_earned: 0,
+        customer_phone: c ? c.phone : null, phone: c ? c.phone : o.phone
+      });
+      delete row.use_points;
+      if (use) { c.points -= use; c.ledger.unshift({ order_no: no, delta: -use, reason: 'redeem', created_at: now() }); jset(CK, cs); }
+      a.push(row); write(a);
+      return { no, token: row.token, points_used: use, total: row.total };
     },
     async getOrder(token) { return read().find((x) => x.token === token) || null; },
     async signIn() { return { ok: true }; },
     async signOut() {},
     async session() { return true; },
     async listOrders() { return read().filter((x) => Date.now() - new Date(x.created_at) < 864e5).reverse(); },
-    async setStatus(id, status) { const a = read(); const r = a.find((x) => x.id === id); if (r) { r.status = status; write(a); } },
-    subscribe(cb) { window.addEventListener('storage', (e) => { if (e.key === KEY) cb(); }); const t = setInterval(cb, 4000); return () => clearInterval(t); }
+    async setStatus(id, status) {
+      const a = read(); const r = a.find((x) => x.id === id); if (!r || r.status === status) return;
+      const cs = jget(CK, {}); const c = r.customer_phone && cs[r.customer_phone];
+      if (c) {
+        if (status === 'done' && !r.points_earned) {
+          const earn = earnFor(r.total, await demo.getSettings());
+          if (earn > 0) { r.points_earned = earn; c.points += earn; c.ledger.unshift({ order_no: r.no, delta: earn, reason: 'earn', created_at: now() }); }
+        } else if (status === 'cancelled' && r.points_used > 0) {
+          c.points += r.points_used; c.ledger.unshift({ order_no: r.no, delta: r.points_used, reason: 'refund', created_at: now() });
+        }
+        jset(CK, cs);
+      }
+      r.status = status; write(a);
+    },
+    subscribe(cb) { window.addEventListener('storage', (e) => { if (e.key === KEY) cb(); }); const t = setInterval(cb, 4000); return () => clearInterval(t); },
+
+    // الحساب والنقاط
+    async getSettings() { return Object.assign({}, DEFAULTS, jget(STK, {})); },
+    async saveSettings(s) { jset(STK, { points_enabled: !!s.points_enabled, earn_per_100: +s.earn_per_100 }); },
+    async sendCode(phone) {
+      const code = String(Math.floor(100000 + Math.random() * 900000));
+      pending = { phone, code };
+      return { ok: true, demoCode: code };
+    },
+    async verifyCode(phone, code) {
+      if (!pending || pending.phone !== phone || pending.code !== code) return { ok: false, msg: 'الكود غلط، تأكد منه وجرّب مرة ثانية' };
+      pending = null;
+      const cs = jget(CK, {}); if (!cs[phone]) cs[phone] = { phone, name: '', points: 0, ledger: [], created_at: now() };
+      jset(CK, cs); jset(SK, phone); return { ok: true };
+    },
+    async me() {
+      const ph = jget(SK, null); const c = ph && jget(CK, {})[ph];
+      return c ? { name: c.name, phone: c.phone, points: c.points, ledger: c.ledger.slice(0, 30) } : null;
+    },
+    async saveName(name) { const ph = jget(SK, null); const cs = jget(CK, {}); if (ph && cs[ph]) { cs[ph].name = name; jset(CK, cs); } },
+    async logout() { try { localStorage.removeItem(SK); } catch (e) {} }
   };
 
   // ---------- Supabase ----------
   let sb = null;
   if (live) sb = window.supabase.createClient(C.SUPABASE_URL, C.SUPABASE_ANON_KEY);
+  const e164 = (p) => '+966' + String(p).replace(/^0/, '');
+  const isStaff = async () => { const { data } = await sb.rpc('is_staff'); return !!data; };
   const real = {
     async placeOrder(o) {
       const { data, error } = await sb.rpc('place_order', { p: o });
@@ -38,10 +91,12 @@
     },
     async signIn(email, password) {
       const { error } = await sb.auth.signInWithPassword({ email, password });
-      return error ? { ok: false, msg: 'الإيميل أو كلمة المرور غلط' } : { ok: true };
+      if (error) return { ok: false, msg: 'الإيميل أو كلمة المرور غلط' };
+      if (!(await isStaff())) { await sb.auth.signOut(); return { ok: false, msg: 'هذا الحساب مو مسجّل ككاشير' }; }
+      return { ok: true };
     },
     async signOut() { await sb.auth.signOut(); },
-    async session() { const { data } = await sb.auth.getSession(); return !!data.session; },
+    async session() { const { data } = await sb.auth.getSession(); return !!data.session && (await isStaff()); },
     async listOrders() {
       const since = new Date(Date.now() - 864e5).toISOString();
       const { data, error } = await sb.from('orders').select('*').gte('created_at', since).order('created_at', { ascending: false });
@@ -55,8 +110,34 @@
       const ch = sb.channel('orders').on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, cb).subscribe();
       const t = setInterval(cb, 15000);
       return () => { clearInterval(t); sb.removeChannel(ch); };
-    }
+    },
+
+    // الحساب والنقاط
+    async getSettings() {
+      const { data } = await sb.from('settings').select('points_enabled,earn_per_100').eq('id', 1).maybeSingle();
+      return Object.assign({}, DEFAULTS, data || {}, data ? { earn_per_100: +data.earn_per_100 } : {});
+    },
+    async saveSettings(s) {
+      const { error } = await sb.from('settings').update({ points_enabled: !!s.points_enabled, earn_per_100: +s.earn_per_100 }).eq('id', 1);
+      if (error) throw error;
+    },
+    async sendCode(phone) {
+      const { error } = await sb.auth.signInWithOtp({ phone: e164(phone) });
+      return error ? { ok: false, msg: 'ما قدرنا نرسل الكود، جرّب بعد شوي' } : { ok: true };
+    },
+    async verifyCode(phone, code) {
+      const { error } = await sb.auth.verifyOtp({ phone: e164(phone), token: code, type: 'sms' });
+      return error ? { ok: false, msg: 'الكود غلط أو انتهى، جرّب مرة ثانية' } : { ok: true };
+    },
+    async me() {
+      const { data: s } = await sb.auth.getSession(); const u = s.session && s.session.user;
+      if (!u || !u.phone) return null;
+      const { data, error } = await sb.rpc('get_me'); if (error) return null;
+      return data || { name: '', phone: u.phone, points: 0, ledger: [] };
+    },
+    async saveName(name) { const { error } = await sb.rpc('save_me', { p_name: name }); if (error) throw error; },
+    async logout() { await sb.auth.signOut(); }
   };
 
-  window.JOCKEY_API = Object.assign({ live, STATUS }, live ? real : demo);
+  window.JOCKEY_API = Object.assign({ live, STATUS, earnFor }, live ? real : demo);
 })();

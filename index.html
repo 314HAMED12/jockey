@@ -16,7 +16,8 @@
   <img class="logo" src="img/logo.jpg" alt="شعار Jockey">
   <div class="brand lat">JOCKEY ♞<small id="city">قهوة مختصة</small></div>
   <button class="typebtn" id="typeBtn" style="margin-inline-start:auto"></button>
-  <button class="track" id="trackBtn" hidden><span class="dot"></span>طلبك</button>
+  <button class="track" id="trackBtn" hidden><span class="dot"></span><span class="t">طلبك</span></button>
+  <button class="acct" id="acct" aria-label="حسابي ونقاطي"></button>
   <button class="cartbtn" id="openCart" aria-label="السلة" style="margin-inline-start:0">السلة <b id="count">0</b></button>
 </div></header>
 
@@ -25,6 +26,8 @@
   <p>قهوة مختصة. اطلب مشروبك من جوالك، واستلمه من الكافيه أو وأنت في سيارتك.</p>
   <div class="btns"><a class="b1" href="#sig">تصفح المنيو</a><a class="b2" href="#visit">الموقع والدوام</a></div>
 </div><img src="img/hero.jpg" alt="قهوة Jockey"></div></div>
+
+<div class="strip pad" id="strip" hidden></div>
 
 <nav class="chips"><div class="wrap pad" id="chips"></div></nav>
 <main class="pad"><div class="wrap" id="menu"></div></main>
@@ -44,6 +47,7 @@
 <footer class="pad"><div class="wrap" id="foot"></div></footer>
 
 <div class="veil" id="veil" hidden><div class="sheet" id="sheet" role="dialog" aria-modal="true"></div></div>
+<div class="toast" id="toast" role="status" hidden></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="config.js"></script>
@@ -52,22 +56,34 @@
 <script>
 {
 const C=window.JOCKEY_CONFIG,M=window.JOCKEY_MENU,API=window.JOCKEY_API;
-const $=s=>document.querySelector(s),esc=t=>String(t??'').replace(/[&<>"']/g,c=>'&#'+c.charCodeAt(0)+';'),sar=n=>n+' ر.س';
+const $=s=>document.querySelector(s),esc=t=>String(t??'').replace(/[&<>"']/g,c=>'&#'+c.charCodeAt(0)+';'),sar=n=>(Math.round(n*100)/100)+' ر.س';
 const store={get(k,d){try{const v=localStorage.getItem('jk_'+k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem('jk_'+k,JSON.stringify(v))}catch(e){}}};
 const ICON={
  pickup:'<svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M7 11h18l-2 16H9z"/><path d="M12 11V8a4 4 0 0 1 8 0v3"/></svg>',
  car:'<svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M5 20v-4l3-6h16l3 6v4z"/><path d="M5 20v4h4v-4M23 20v4h4v-4M5 16h22"/><circle cx="10" cy="18" r="1"/><circle cx="22" cy="18" r="1"/></svg>',
  dinein:'<svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 13h20M9 13v13M23 13v13M16 13V6"/><path d="M11 6h10"/></svg>'};
+const USER='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>';
+const STAR='<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.8l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 16.8l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/></svg>';
+const COIN=`<span class="coin" aria-hidden="true">${STAR}</span>`;
 const TYPES={pickup:'استلام من الكافيه',car:'من السيارة',dinein:'داخل الكافيه'};
 const CUP='<svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 24h34v14a15 15 0 0 1-15 15h-4a15 15 0 0 1-15-15z"/><path d="M46 28h4a6 6 0 0 1 0 12h-5"/><path d="M22 8c-2 4 2 6 0 10M30 8c-2 4 2 6 0 10M38 8c-2 4 2 6 0 10"/></svg>';
 let cart=store.get('cart',[]),type=store.get('type',null),me=store.get('me',{name:'',phone:'',car:''});
+let S={points_enabled:C.POINTS!==false,earn_per_100:10},ME=null;
+const num=n=>String(+(+n).toFixed(2));
+const earnOf=amt=>API.earnFor(amt,S);
+const pts=n=>n==1?'نقطة':n==2?'نقطتين':n>=3&&n<=10?n+' نقاط':n+' نقطة';
 
 // المعلومات
 $('#addr').textContent=C.CITY+'، '+C.ADDRESS;$('#hours').textContent=C.HOURS;
 $('#ig').textContent='@'+C.INSTAGRAM;$('#ig').href='https://www.instagram.com/'+C.INSTAGRAM+'/';
 $('#city').textContent='قهوة مختصة · '+C.CITY;
-$('#foot').textContent=(API.live?'':'وضع تجربة: الطلبات تنحفظ على هذا الجهاز فقط. ')+'JOCKEY Coffee House · '+C.CITY;
+$('#foot').textContent=(API.live?'':'وضع تجربة: الطلبات والحسابات تنحفظ على هذا الجهاز فقط. ')+'JOCKEY Coffee House · '+C.CITY;
 const isOpen=()=>{const h=+new Intl.DateTimeFormat('en-GB',{hour:'numeric',hourCycle:'h23',timeZone:'Asia/Riyadh'}).format(new Date());return h>=13};
+
+// الجوال: يقبل الأرقام العربية و 05 أو 5 أو 966
+const toEn=s=>String(s||'').replace(/[٠-٩]/g,d=>'٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/[۰-۹]/g,d=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(d));
+const normPhone=s=>{let d=toEn(s).replace(/\D/g,'');if(d.startsWith('00'))d=d.slice(2);if(d.startsWith('966'))d=d.slice(3);if(d.startsWith('0'))d=d.slice(1);return /^5\d{8}$/.test(d)?'0'+d:null};
+const showPhone=p=>{const d=String(p||'').replace(/\D/g,'');return d.startsWith('966')?'0'+d.slice(3):d};
 
 // المنيو
 const pic=it=>it.img?`<img src="img/${it.img}.jpg" alt="${esc(it.n)}" loading="lazy">`:CUP;
@@ -81,9 +97,118 @@ document.querySelectorAll('section.cat').forEach(s=>io.observe(s));
 
 // النوافذ
 const veil=$('#veil'),sheet=$('#sheet');
-const open=h=>{sheet.innerHTML=h;veil.hidden=false;sheet.scrollTop=0};const close=()=>{veil.hidden=true;sheet.onclick=null;sheet.onchange=null};
-veil.onclick=e=>{if(e.target==veil)close()};document.addEventListener('keydown',e=>{if(e.key=='Escape')close()});
+let onClose=null;
+const open=h=>{sheet.innerHTML=h;veil.hidden=false;sheet.scrollTop=0};
+const close=()=>{veil.hidden=true;sheet.onclick=null;sheet.onchange=null;sheet.oninput=null;sheet.onsubmit=null;const f=onClose;onClose=null;f&&f()};
+veil.onclick=e=>{if(e.target==veil)close()};document.addEventListener('keydown',e=>{if(e.key=='Escape'&&!veil.hidden)close()});
 const head=(t,s)=>`<div class="top"><div><h3>${t}</h3>${s?`<span style="color:var(--mute)">${s}</span>`:''}</div><button class="x" data-x aria-label="إغلاق">✕</button></div>`;
+let toastT=null;
+function toast(t){const el=$('#toast');el.innerHTML=t;el.hidden=false;el.style.animation='none';el.offsetHeight;el.style.animation='';clearTimeout(toastT);toastT=setTimeout(()=>el.hidden=true,3200)}
+
+// الحساب والنقاط
+const logged=()=>!!(ME&&ME.name);
+async function loadMe(){try{ME=await API.me()}catch(e){ME=null}renderAcct();renderStrip()}
+function renderAcct(){
+ const b=$('#acct');
+ if(logged()&&S.points_enabled){b.className='acct in';b.innerHTML=`<span class="st">${STAR}</span><b>${ME.points}</b>`;b.setAttribute('aria-label',`نقاطي: ${ME.points}`)}
+ else if(logged()){b.className='acct in';b.innerHTML=USER;b.setAttribute('aria-label','حسابي')}
+ else{b.className='acct';b.innerHTML=`${USER}<span class="t">دخول</span>`;b.setAttribute('aria-label','تسجيل الدخول')}
+}
+function renderStrip(){
+ const el=$('#strip');if(!S.points_enabled){el.hidden=true;return}
+ el.hidden=false;
+ el.innerHTML=logged()
+  ?`<div class="wrap">${COIN}<div><b>${ME.points?`محفظتك: ${pts(ME.points)}`:'محفظتك جاهزة'}</b><small>${ME.points?`تساوي ${sar(ME.points)} تخصمها من طلبك`:'اطلب وتبدأ تجمع من أول طلب'}</small></div><button data-wallet>محفظتي</button></div>`
+  :`<div class="wrap">${COIN}<div><b>جمّع نقاط مع كل طلب</b><small>كل 100 ريال = ${pts(num(S.earn_per_100))}، والنقطة بريال</small></div><button data-login>سجّل</button></div>`;
+}
+$('#strip').onclick=e=>{if(e.target.closest('[data-wallet]'))showWallet();if(e.target.closest('[data-login]'))showLogin(showWallet)};
+$('#acct').onclick=()=>logged()?showWallet():showLogin(showWallet);
+
+function showLogin(then,opt={}){
+ let step=ME&&!ME.name?'name':'phone',phone='',demoCode='',left=0,tm=null,busy=false;
+ const stop=()=>{clearInterval(tm);tm=null};
+ const draw=()=>{
+  if(step=='phone')open(`${head('سجّل دخولك','برقم جوالك، بدون كلمة مرور')}
+   ${S.points_enabled?`<div class="perk">${COIN}<div><b>كل 100 ريال = ${pts(num(S.earn_per_100))}</b><small>والنقطة بريال، تخصمها من أي طلب</small></div></div>`:''}
+   <form id="lform"><label class="f"><span>رقم الجوال</span><input type="text" id="lph" inputmode="tel" dir="ltr" placeholder="05xxxxxxxx" autocomplete="tel" value="${esc(phone)}"></label>
+   <div class="err" id="lerr" hidden></div>
+   <button class="go" id="lgo"><span>أرسل الكود</span><span>←</span></button></form>
+   ${opt.required?'':'<button class="link" data-skip>بعدين، أتصفح المنيو أول</button>'}`);
+  else if(step=='code')open(`${head('اكتب الكود',`أرسلناه برسالة على <span dir="ltr">${esc(phone)}</span>`)}
+   ${demoCode?`<div class="demo-code">وضع تجربة: الكود اللي يوصلك برسالة هو <b dir="ltr">${demoCode}</b></div>`:''}
+   <form id="lform"><input type="text" class="otp" id="lcode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" dir="ltr" placeholder="••••••" aria-label="الكود">
+   <div class="err" id="lerr" hidden></div>
+   <button class="go" id="lgo"><span>تأكيد</span><span>←</span></button></form>
+   <div class="links"><button class="link" data-back>غيّر الرقم</button><button class="link" data-resend disabled></button></div>`);
+  else open(`${head('أهلًا فيك!','آخر خطوة: وش نناديك؟')}
+   <form id="lform"><label class="f"><span>الاسم</span><input type="text" id="lnm" placeholder="مثال: أبو فهد" autocomplete="name" value="${esc(me.name||'')}"></label>
+   <div class="err" id="lerr" hidden></div>
+   <button class="go" id="lgo"><span>ابدأ</span><span>←</span></button></form>`);
+  const f=$('#lform input');f&&setTimeout(()=>f.focus(),60);
+  if(step=='code')tick();
+ };
+ const err=t=>{const e=$('#lerr');if(e){e.textContent=t;e.hidden=!t}};
+ const tick=()=>{const b=sheet.querySelector('[data-resend]');if(!b)return stop();b.disabled=left>0;b.textContent=left>0?`أرسل الكود مرة ثانية (${left})`:'أرسل الكود مرة ثانية'};
+ const startTimer=()=>{left=60;stop();tm=setInterval(()=>{left=Math.max(0,left-1);tick();if(!left)stop()},1000)};
+ const wait=on=>{busy=on;const b=$('#lgo');if(b)b.disabled=on};
+ const send=async()=>{wait(true);const r=await API.sendCode(phone).catch(()=>({ok:false,msg:'ما قدرنا نرسل الكود، جرّب بعد شوي'}));wait(false);
+  if(!r.ok)return err(r.msg);demoCode=r.demoCode||'';step='code';draw();startTimer()};
+ const finish=isNew=>{stop();close();toast(`${STAR} ${isNew?`هلا ${esc(ME.name)}! ${S.points_enabled?'محفظتك جاهزة':'حسابك جاهز'}`:`هلا من جديد يا ${esc(ME.name)}${S.points_enabled&&ME.points?`، عندك ${pts(ME.points)}`:''}`}`);then&&then()};
+ const submit=async()=>{if(busy)return;err('');
+  if(step=='phone'){const p=normPhone($('#lph').value);if(!p)return err('اكتب رقم جوال سعودي صحيح، مثل 0501234567');phone=p;return send()}
+  if(step=='code'){const c=toEn($('#lcode').value).replace(/\D/g,'');if(c.length<6)return err('الكود 6 أرقام');
+   wait(true);const r=await API.verifyCode(phone,c).catch(()=>({ok:false,msg:'صار خطأ، جرّب مرة ثانية'}));wait(false);
+   if(!r.ok)return err(r.msg);await loadMe();if(logged())return finish(false);step='name';return draw()}
+  if(step=='name'){const n=$('#lnm').value.trim();if(n.length<2)return err('اكتب اسمك عشان ننادي عليك');
+   wait(true);try{await API.saveName(n)}catch(e){wait(false);return err('ما قدرنا نحفظ الاسم، جرّب مرة ثانية')}
+   me.name=n;store.set('me',me);await loadMe();wait(false);finish(true)}
+ };
+ draw();
+ sheet.onsubmit=e=>{e.preventDefault();submit()};
+ sheet.oninput=e=>{if(e.target.id=='lcode'){const v=toEn(e.target.value).replace(/\D/g,'').slice(0,6);e.target.value=v;if(v.length==6)submit()}};
+ sheet.onclick=e=>{if(e.target.closest('[data-x]')){stop();return close()}
+  if(e.target.closest('[data-skip]')){store.set('skipLogin',1);stop();close();return opt.skipThen&&opt.skipThen()}
+  if(e.target.closest('[data-back]')){stop();step='phone';return draw()}
+  if(e.target.closest('[data-resend]'))send()};
+}
+
+const WHY={earn:'كسبت نقاط',redeem:'خصمتها من طلبك',refund:'رجعت لك (طلب ملغي)',adjust:'تعديل من الكافيه'};
+const ago=d=>{const m=Math.round((Date.now()-new Date(d))/6e4);return m<1?'الحين':m<60?`قبل ${m} د`:m<1440?`قبل ${Math.floor(m/60)} س`:new Date(d).toLocaleDateString('ar-SA-u-nu-latn',{day:'numeric',month:'short'})};
+async function logoutBtn(b){if(b.dataset.sure!='1'){b.dataset.sure='1';b.textContent='متأكد؟ اضغط مرة ثانية';return}
+ await API.logout();ME=null;renderAcct();renderStrip();close();toast('سجّلت خروج')}
+function showAccount(){
+ const ph=showPhone(ME.phone),mine=store.get('mine',[]).filter(m=>m.o.phone==ph).slice(0,5);
+ open(`${head('حسابي')}
+ <div class="wcard"><div class="wtop"><span class="lat">JOCKEY ♞</span><span>حسابي</span></div>
+  <div class="wname big">${esc(ME.name)}</div>
+  <div class="wsub"><span dir="ltr">${esc(ph)}</span> · رقم متأكد منه</div></div>
+ <h4>طلباتك الأخيرة</h4>
+ ${mine.length?mine.map(m=>`<button class="lg ord" data-tk="${m.token}"><div><b>طلب #${m.no}</b><small>${TYPES[m.o.order_type]} · ${ago(m.at)}</small></div><span class="pv">${sar(m.o.total)}</span></button>`).join(''):'<p class="note" style="margin-top:6px">ما طلبت للحين. أول طلب يطلع هنا.</p>'}
+ <button class="go" data-x><span>اطلب الحين</span><span>←</span></button>
+ <button class="ghost" data-logout>تسجيل خروج</button>`);
+ sheet.onclick=e=>{if(e.target.closest('[data-x]'))return close();const t=e.target.closest('[data-tk]');if(t)return showTrack(t.dataset.tk);
+  const lo=e.target.closest('[data-logout]');if(lo)logoutBtn(lo)};
+}
+async function showWallet(){
+ await loadMe();if(!logged())return showLogin(showWallet);
+ if(!S.points_enabled)return showAccount();
+ const L=ME.ledger||[];
+ open(`${head('محفظتي')}
+ <div class="wcard"><div class="wtop"><span class="lat">JOCKEY ♞</span><span>محفظة النقاط</span></div>
+  <div class="wbal"><b id="wbal">0</b><span>${ME.points>=3&&ME.points<=10?'نقاط':'نقطة'}</span></div>
+  <div class="wsub">${ME.points?`تساوي ${sar(ME.points)} تخصمها من طلبك`:'اطلب وتبدأ تجمع من أول طلب'}</div>
+  <div class="wname">${esc(ME.name)} · <span dir="ltr">${esc(showPhone(ME.phone))}</span></div></div>
+ <div class="how"><div><b>1</b>كل 100 ريال تطلبها = ${pts(num(S.earn_per_100))}</div><div><b>2</b>النقاط تنضاف بعد ما تستلم طلبك</div><div><b>3</b>النقطة بريال، تخصمها من أي طلب</div></div>
+ <h4>آخر الحركات</h4>
+ ${L.length?L.map(x=>`<div class="lg ${x.delta>0?'up':'down'}"><div><b>${WHY[x.reason]||''}</b><small>${x.order_no?'طلب #'+x.order_no+' · ':''}${ago(x.created_at)}</small></div><span class="pv" dir="ltr">${x.delta>0?'+':'−'}${Math.abs(x.delta)}</span></div>`).join(''):'<p class="note" style="margin-top:6px">ما فيه حركات للحين. أول طلب تستلمه، تنضاف نقاطه هنا.</p>'}
+ <button class="go" data-x><span>اطلب الحين</span><span>←</span></button>
+ <button class="ghost" data-logout>تسجيل خروج</button>`);
+ countUp($('#wbal'),ME.points);
+ sheet.onclick=async e=>{if(e.target.closest('[data-x]'))return close();
+  const lo=e.target.closest('[data-logout]');if(lo)logoutBtn(lo)};
+}
+function countUp(el,to){if(!el)return;if(matchMedia('(prefers-reduced-motion: reduce)').matches||to<2){el.textContent=to;return}
+ const t0=performance.now(),d=Math.min(1200,300+to*20);const f=t=>{const k=Math.min(1,(t-t0)/d);el.textContent=Math.round(to*(1-Math.pow(1-k,3)));if(k<1)requestAnimationFrame(f)};requestAnimationFrame(f)}
 
 // نوع الطلب (مثل عربيكا)
 function renderType(){$('#typeBtn').innerHTML=type?`${ICON[type].replace('<svg','<svg width="18" height="18"')}<span class="t">${TYPES[type]}</span>`:`${ICON.pickup.replace('<svg','<svg width="18" height="18"')}<span class="t">طريقة الطلب</span>`}
@@ -120,53 +245,76 @@ function save(){store.set('cart',cart);$('#count').textContent=cart.reduce((a,c)
 const total=()=>cart.reduce((a,c)=>a+c.u*c.q,0);
 
 // السلة
+let usePts=false;
 $('#openCart').onclick=showCart;
 function showCart(){
  if(!cart.length){open(`${head('السلة')}<p style="color:var(--mute)">السلة فاضية. اختر مشروبك من المنيو.</p><button class="go" data-x><span>تصفح المنيو</span><span>←</span></button>`);sheet.onclick=e=>{if(e.target.closest('[data-x]'))close()};return}
  if(!type)return chooseType(showCart);
+ const sub=total(),canUse=S.points_enabled&&logged()&&ME.points>0;
+ const lines=cart.map((c,k)=>`<div class="line"><div><b>${c.q}× ${esc(c.n)}</b><br><small>${esc(c.opt)}</small></div><div style="text-align:end"><span class="price">${sar(c.u*c.q)}</span><br><button data-del="${k}" style="border:0;background:none;color:var(--mute);font-size:13px;padding:0">حذف</button></div></div>`).join('');
  open(`${head('طلبك',`<button class="typebtn" data-type style="margin-top:6px">${ICON[type].replace('<svg','<svg width="16" height="16"')}${TYPES[type]} · تغيير</button>`)}
- ${cart.map((c,k)=>`<div class="line"><div><b>${c.q}× ${esc(c.n)}</b><br><small>${esc(c.opt)}</small></div><div style="text-align:end"><span class="price">${sar(c.u*c.q)}</span><br><button data-del="${k}" style="border:0;background:none;color:var(--mute);font-size:13px;padding:0">حذف</button></div></div>`).join('')}
- <label class="f"><span>الاسم</span><input type="text" id="nm" value="${esc(me.name)}" placeholder="مثال: أبو فهد" autocomplete="name"></label>
- <label class="f"><span>رقم الجوال</span><input type="text" id="ph" value="${esc(me.phone)}" inputmode="tel" placeholder="05xxxxxxxx" autocomplete="tel"></label>
+ ${lines}
+ ${logged()?`
+ <label class="f"><span>الاسم</span><input type="text" id="nm" value="${esc(me.name||ME.name)}" placeholder="مثال: أبو فهد" autocomplete="name"></label>
  ${type=='car'?`<label class="f"><span>نوع ولون السيارة</span><input type="text" id="car" value="${esc(me.car)}" placeholder="مثال: كامري بيضاء"></label>`:''}
  ${type=='dinein'?`<label class="f"><span>رقم الطاولة</span><input type="text" id="tbl" inputmode="numeric" placeholder="مثال: 4"></label>`:''}
  <label class="f"><span>ملاحظات</span><textarea id="nt" rows="2" placeholder="أي طلب خاص"></textarea></label>
+ ${canUse?`<label class="usep">${COIN}<span><b>استخدم نقاطي</b><small>عندك ${pts(ME.points)} = ${sar(ME.points)}</small></span><input type="checkbox" class="sw" id="usep" ${usePts?'checked':''}></label>`:''}
+ <div class="sum" id="sum"></div>
  ${isOpen()?'':'<div class="warn">الكافيه مقفل الحين، يفتح الساعة 1 الظهر.</div>'}
  <div class="err" id="err" hidden></div>
- <button class="go" id="send"><span>أرسل الطلب · الدفع عند الاستلام</span><span>${sar(total())}</span></button>`);
+ <button class="go" id="send"><span>أرسل الطلب · الدفع عند الاستلام</span><span id="pay"></span></button>`
+ :`
+ <div class="sum"><div class="tot"><span>المجموع</span><span>${sar(sub)}</span></div></div>
+ <div class="need">${COIN}<div><b>سجّل برقم جوالك وكمّل طلبك</b><small>${S.points_enabled?`دقيقة وحدة، وتكسب ${pts(earnOf(sub))} من هالطلب`:'دقيقة وحدة، وبدون كلمة مرور'}</small></div></div>
+ <button class="go" data-login><span>سجّل وكمّل الطلب</span><span>←</span></button>`}`);
+ const upd=()=>{if(!logged())return;const use=canUse&&usePts?Math.min(ME.points,Math.floor(sub)):0,pay=sub-use,earn=earnOf(pay);
+  $('#sum').innerHTML=`${use?`<div><span>المجموع</span><span>${sar(sub)}</span></div><div class="disc"><span>خصم النقاط</span><span dir="ltr">−${sar(use)}</span></div>`:''}<div class="tot"><span>${!use?'المجموع':pay?'المطلوب عند الاستلام':'مدفوع بالكامل بالنقاط'}</span><span>${sar(pay)}</span></div>${earn>0?`<div class="earn">${STAR}<span>بتكسب <b>${pts(earn)}</b> من هالطلب بعد الاستلام</span></div>`:''}`;
+  $('#pay').textContent=sar(pay);$('#send').firstElementChild.textContent=pay?'أرسل الطلب · الدفع عند الاستلام':'أرسل الطلب'};
+ upd();
+ sheet.onchange=e=>{if(e.target.id=='usep'){usePts=e.target.checked;upd()}};
  sheet.onclick=e=>{if(e.target.closest('[data-x]'))return close();if(e.target.closest('[data-type]'))return chooseType(showCart);
+  if(e.target.closest('[data-login]'))return showLogin(showCart,{required:true});
   const d=e.target.closest('[data-del]');if(d){cart.splice(+d.dataset.del,1);save();return showCart()}
-  if(e.target.closest('#send'))send()};
+  if(e.target.closest('#send'))send(sub)};
 }
-async function send(){
+async function send(sub){
  const v=id=>($(id)||{}).value?.trim()||'';const err=$('#err'),btn=$('#send');
- const o={order_type:type,customer_name:v('#nm'),phone:v('#ph'),car:v('#car'),table_no:v('#tbl'),notes:v('#nt'),items:cart.map(c=>({n:c.n,opt:c.opt,q:c.q,u:c.u})),total:total()};
+ const use=S.points_enabled&&usePts&&ME.points>0?Math.min(ME.points,Math.floor(sub)):0;
+ const o={order_type:type,customer_name:v('#nm'),phone:showPhone(ME.phone),car:v('#car'),table_no:v('#tbl'),notes:v('#nt'),items:cart.map(c=>({n:c.n,opt:c.opt,q:c.q,u:c.u})),subtotal:sub,total:sub-use,use_points:use};
  const bad=o.customer_name.length<2?'اكتب اسمك عشان ننادي عليك':type=='car'&&!o.car?'اكتب نوع ولون سيارتك':type=='dinein'&&!o.table_no?'اكتب رقم الطاولة':'';
  if(bad){err.textContent=bad;err.hidden=false;return}
  btn.disabled=true;btn.firstElementChild.textContent='جاري الإرسال...';
  try{
   const r=await API.placeOrder(o);
+  o.points_used=r.points_used||0;o.total=r.total??o.total;delete o.use_points;
   me={name:o.customer_name,phone:o.phone,car:o.car||me.car};store.set('me',me);
   const mine=store.get('mine',[]);mine.unshift({token:r.token,no:r.no,at:Date.now(),o});store.set('mine',mine.slice(0,10));
-  cart=[];save();showTrack(r.token);
+  cart=[];usePts=false;save();await loadMe();showTrack(r.token);
  }catch(e){err.textContent='ما قدرنا نرسل الطلب، جرّب مرة ثانية.';err.hidden=false;btn.disabled=false;btn.firstElementChild.textContent='أرسل الطلب'}
 }
 
 // متابعة الطلب
 const STEPS=[['new','وصل الطلب للكافيه'],['accepted','انقبل ويتحضّر الحين'],['ready','جاهز للاستلام']];
 let poll=null;
-function waText(m){const o=m.o;return [`طلب جديد #${m.no} (${TYPES[o.order_type]})`,...o.items.map(c=>`• ${c.q}× ${c.n}${c.opt?' ('+c.opt+')':''}`),`المجموع: ${sar(o.total)}`,`الاسم: ${o.customer_name}`,o.phone?`الجوال: ${o.phone}`:'',o.car?`السيارة: ${o.car}`:'',o.table_no?`الطاولة: ${o.table_no}`:'',o.notes?`ملاحظات: ${o.notes}`:''].filter(Boolean).join('\n')}
+function waText(m){const o=m.o;return [`طلب جديد #${m.no} (${TYPES[o.order_type]})`,...o.items.map(c=>`• ${c.q}× ${c.n}${c.opt?' ('+c.opt+')':''}`),o.points_used?`خصم نقاط: ${o.points_used} ر.س`:'',`المطلوب: ${sar(o.total)}`,`الاسم: ${o.customer_name}`,o.phone?`الجوال: ${o.phone}`:'',o.car?`السيارة: ${o.car}`:'',o.table_no?`الطاولة: ${o.table_no}`:'',o.notes?`ملاحظات: ${o.notes}`:''].filter(Boolean).join('\n')}
 async function showTrack(token){
  const m=store.get('mine',[]).find(x=>x.token==token);if(!m)return;
- const draw=async()=>{let st='new';try{const r=await API.getOrder(token);if(r)st=r.status}catch(e){}
+ let credited=false;
+ const draw=async()=>{let st='new',r=null;try{r=await API.getOrder(token);if(r)st=r.status}catch(e){}
   if(veil.hidden||!sheet.querySelector('[data-track]'))return;
   const idx=st=='done'?3:STEPS.findIndex(s=>s[0]==st);
-  sheet.querySelector('[data-track]').innerHTML=st=='cancelled'?'<div class="err">انلغى الطلب. كلّم الكافيه لو عندك سؤال.</div>':STEPS.map(([k,l],i)=>`<div class="step ${i<=idx?'on':''}"><i>${i<idx||st=='done'?'✓':i+1}</i>${l}${k=='ready'&&m.o.order_type=='car'?'، بنجيبه لسيارتك':''}</div>`).join('')+(st=='done'?'<p class="note">تم التسليم، بالعافية ☕</p>':'');
+  sheet.querySelector('[data-track]').innerHTML=st=='cancelled'?`<div class="err">انلغى الطلب. ${m.o.points_used?'نقاطك رجعت لمحفظتك. ':''}كلّم الكافيه لو عندك سؤال.</div>`:STEPS.map(([k,l],i)=>`<div class="step ${i<=idx?'on':''}"><i>${i<idx||st=='done'?'✓':i+1}</i>${l}${k=='ready'&&m.o.order_type=='car'?'، بنجيبه لسيارتك':''}</div>`).join('')+(st=='done'?'<p class="note">تم التسليم، بالعافية ☕</p>':'');
+  const got=r&&r.points_earned,will=earnOf(m.o.total);
+  sheet.querySelector('[data-pts]').innerHTML=st=='done'&&got?`<div class="earned">${COIN}<span>انضافت لمحفظتك <b>${pts(got)}</b></span></div>`:st!='cancelled'&&logged()&&will>0?`<div class="earn">${STAR}<span>بتنضاف لك <b>${pts(will)}</b> بعد الاستلام</span></div>`:'';
+  if(st=='done'&&got&&!credited){credited=true;loadMe()}
   if(st=='done'||st=='cancelled'){clearInterval(poll);refreshTrack()}};
  open(`${head('طلبك رقم #'+m.no,TYPES[m.o.order_type]+' · '+sar(m.o.total))}
  <div class="steps" data-track></div>
+ <div data-pts></div>
  ${m.o.items.map(c=>`<div class="line"><div><b>${c.q}× ${esc(c.n)}</b><br><small>${esc(c.opt)}</small></div><span class="price">${sar(c.u*c.q)}</span></div>`).join('')}
- <p class="note">الصفحة تتحدث لحالها. الدفع عند الاستلام.</p>
+ ${m.o.points_used?`<div class="sum"><div class="disc"><span>خصم النقاط</span><span dir="ltr">−${sar(m.o.points_used)}</span></div><div class="tot"><span>المطلوب عند الاستلام</span><span>${sar(m.o.total)}</span></div></div>`:''}
+ <p class="note">الصفحة تتحدث لحالها.${m.o.total?' الدفع عند الاستلام.':''}</p>
  ${C.WHATSAPP?`<a class="ghost" target="_blank" rel="noopener" href="https://wa.me/${C.WHATSAPP}?text=${encodeURIComponent(waText(m))}">أرسل نسخة من الطلب على الواتساب</a>`:''}
  <button class="go" data-x><span>رجوع للمنيو</span><span>←</span></button>`);
  sheet.onclick=e=>{if(e.target.closest('[data-x]'))close()};
@@ -178,8 +326,16 @@ async function refreshTrack(){
  try{const r=await API.getOrder(m.token);if(r&&!['done','cancelled'].includes(r.status)){b.hidden=false;b.onclick=()=>showTrack(m.token)}}catch(e){}
 }
 setInterval(refreshTrack,20000);refreshTrack();
-save();
-if(!type)setTimeout(()=>chooseType(),400);
+save();renderAcct();
+
+// البداية: أول مرة يطلع الدخول، بعدين طريقة الطلب
+(async()=>{
+ try{S=await API.getSettings()}catch(e){}
+ if(C.POINTS===false)S.points_enabled=false;
+ await loadMe();
+ if(!logged()&&!store.get('skipLogin',0))setTimeout(()=>showLogin(()=>{if(!type)chooseType()},{skipThen:()=>{if(!type)chooseType()}}),400);
+ else if(!type)setTimeout(()=>chooseType(),400);
+})();
 }
 </script>
 </body>

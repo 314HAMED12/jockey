@@ -8,5 +8,6 @@ window.JOCKEY_CONFIG = {
   CITY: 'ينبع',
   ADDRESS: 'الهيئة الملكية، حي البثنة (مكان فدركرز سابقًا)',
   HOURS: 'من 1 الظهر إلى 12 الليل',
-  INSTAGRAM: 'jockeycoffeesa'
+  INSTAGRAM: 'jockeycoffeesa',
+  POINTS: false             // محفظة النقاط: true يشغلها، false يخفيها
 };
