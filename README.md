@@ -22,3 +22,7 @@
 5. الاستضافة: GitHub Pages (Settings > Pages > Branch: main).
 
 الدفع حاليًا عند الاستلام. الدفع أونلاين (مدى وأبل باي) يحتاج سجل تجاري وبوابة دفع مثل Moyasar.
+
+## الروابط
+- صفحة العميل: https://314hamed12.github.io/jockey/
+- شاشة الكاشير: https://314hamed12.github.io/jockey/admin.html
