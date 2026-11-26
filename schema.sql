@@ -153,6 +153,11 @@ begin
   if coalesce(p->>'order_type','') not in ('pickup','car','dinein') then raise exception 'bad order type'; end if;
   if p->>'order_type' = 'car' and length(trim(coalesce(p->>'car',''))) < 2 then raise exception 'car required'; end if;
   if p->>'order_type' = 'dinein' and length(trim(coalesce(p->>'table_no',''))) < 1 then raise exception 'table required'; end if;
+  -- حماية من الإزعاج: 3 طلبات مفتوحة بالكثير، وطلب واحد كل 20 ثانية
+  if (select count(*) from public.orders where customer_id = c.id and status in ('new','accepted','ready')) >= 3 then
+    raise exception 'too many open orders'; end if;
+  if exists (select 1 from public.orders where customer_id = c.id and created_at > now() - interval '20 seconds') then
+    raise exception 'too fast'; end if;
 
   select pi.items, pi.subtotal into v_items, v_sub from public.price_items(p->'items') pi;
 
@@ -182,7 +187,10 @@ create or replace function public.orders_points()
 returns trigger language plpgsql security definer set search_path = public as $$
 declare v_rate numeric; v_earn int;
 begin
-  if new.customer_id is null or new.status = old.status then return new; end if;
+  if new.status = old.status then return new; end if;
+  -- الطلب اللي انسلّم أو انلغى يقفل، عشان النقاط ما تنحسب أو ترجع مرتين
+  if old.status in ('done','cancelled') then raise exception 'order closed'; end if;
+  if new.customer_id is null then return new; end if;
   if new.status = 'done' and new.points_earned = 0 then
     select case when points_enabled then earn_per_100 else 0 end into v_rate from public.settings where id = 1;
     v_earn := floor(new.total * coalesce(v_rate, 0) / 100)::int;
