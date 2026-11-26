@@ -38,6 +38,9 @@
       const a = read(); const no = (a.reduce((m, x) => Math.max(m, x.no), 100)) + 1;
       const s = await demo.getSettings(); const cs = jget(CK, {}); const ph = jget(SK, null); const c = ph && cs[ph];
       if (!c || !c.name) throw new Error('login required');
+      const mineOpen = a.filter((x) => x.customer_phone === c.phone && ['new', 'accepted', 'ready'].includes(x.status));
+      if (mineOpen.length >= 3) throw new Error('too many open orders');
+      if (a.some((x) => x.customer_phone === c.phone && Date.now() - new Date(x.created_at) < 20000)) throw new Error('too fast');
       const { items, subtotal: sub } = priceItems(o.items, window.JOCKEY_MENU);
       const use = s.points_enabled ? Math.max(0, Math.min(o.use_points | 0, c.points, Math.floor(sub))) : 0;
       const pay = o.payment === 'test' && sub - use > 0 ? 'test' : 'cash';
@@ -59,6 +62,7 @@
     async listOrders() { return read().filter((x) => Date.now() - new Date(x.created_at) < 864e5).reverse(); },
     async setStatus(id, status) {
       const a = read(); const r = a.find((x) => x.id === id); if (!r || r.status === status) return;
+      if (['done', 'cancelled'].includes(r.status)) throw new Error('order closed');
       const cs = jget(CK, {}); const c = r.customer_phone && cs[r.customer_phone];
       if (c) {
         if (status === 'done' && !r.points_earned) {
