@@ -41,8 +41,9 @@
    `insert into public.staff(user_id) select id from auth.users where email = 'إيميل الكاشير';`
    (بدون هالخطوة الحساب ما يشوف الطلبات).
 4. أمان الحسابات: كلمة مرور قوية للكاشير، ومن **Authentication > Rate Limits** خل حد رسائل الكود منخفض.
-5. رسائل الكود: **Authentication > Sign In / Providers > Phone** فعّله واربطه بمزود رسائل (أو Send SMS Hook لمزود سعودي مثل تقنيات). يحتاج سجل تجاري واسم مرسل باسم الكافيه.
-6. من **Project Settings > API** انسخ **Project URL** و**anon public key**، وحطهم في `config.js`.
+5. قبل البيع: في نفس صفحة **Phone** حط أرقام تجربة بكود ثابت (مثل `966500000001=123456`)، واحذفها قبل أول عميل حقيقي.
+   رسائل الكود: **Authentication > Sign In / Providers > Phone** فعّله واربطه بمزود رسائل (أو Send SMS Hook لمزود سعودي مثل تقنيات). يحتاج سجل تجاري واسم مرسل باسم الكافيه.
+6. من **Project Settings > API Keys** انسخ **Publishable key** (يبدأ بـ sb_publishable)، وحطه مع رابط المشروع في `config.js`. هذا المفتاح عادي يكون في الموقع. لا تحط أبدًا مفتاح secret أو service_role.
 7. الاستضافة: GitHub Pages (Settings > Pages > Branch: main).
 
 

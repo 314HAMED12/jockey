@@ -256,6 +256,13 @@ grant execute on function public.get_order(uuid) to anon, authenticated;
 grant execute on function public.get_me() to authenticated;
 grant execute on function public.save_me(text) to authenticated;
 
+-- صلاحيات الجداول: بس اللي يحتاجه الموقع، وفوقها قواعد RLS
+revoke all on public.staff, public.settings, public.menu, public.customers, public.points_ledger, public.orders from public, anon, authenticated;
+grant select on public.settings, public.menu to anon, authenticated;
+grant update (points_enabled, earn_per_100) on public.settings to authenticated;
+grant select on public.customers, public.points_ledger, public.orders to authenticated;
+grant update (status) on public.orders to authenticated;
+
 -- تحديث مباشر لشاشة الكاشير
 do $$ begin
   alter publication supabase_realtime add table public.orders;
