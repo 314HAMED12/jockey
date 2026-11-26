@@ -6,7 +6,7 @@
 <title>JOCKEY | شاشة الكاشير</title>
 <meta name="robots" content="noindex">
 <link rel="icon" href="img/logo.jpg">
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="style.css?v=5">
 <style>
 .board{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;padding-block:20px}
 .col h2{font-size:20px;display:flex;gap:8px;align-items:center;margin-bottom:12px}
@@ -78,8 +78,9 @@ dialog.set .login{margin:0;max-width:none}
 </form></dialog>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="config.js"></script>
-<script src="api.js"></script>
+<script src="config.js?v=5"></script>
+<script src="menu.js?v=5"></script>
+<script src="api.js?v=5"></script>
 <script>
 {
 const API=window.JOCKEY_API,$=s=>document.querySelector(s);
@@ -95,6 +96,7 @@ $('#snd').onclick=()=>{try{audio=audio||new (window.AudioContext||window.webkitA
 
 const showPhone=p=>{const d=String(p||'').replace(/\D/g,'');return d.startsWith('966')?'0'+d.slice(3):p};
 const ago=d=>{const m=Math.round((Date.now()-new Date(d))/6e4);return m<1?'الحين':m<60?`قبل ${m} د`:`قبل ${Math.floor(m/60)} س`};
+const paidOn=o=>o.payment=='test'||o.payment=='paid';
 function card(o){
  const n=NEXT[o.status];
  return `<div class="ord ${o.status=='new'?'new':''}"><div class="oh"><span class="no">#${o.no}</span><span class="badge ${o.order_type}">${TYPES[o.order_type]||''}</span></div>
@@ -103,7 +105,7 @@ function card(o){
  <ul class="its">${(o.items||[]).map(i=>`<li><span><b>${i.q}×</b> ${esc(i.n)} ${i.opt?`<small>(${esc(i.opt)})</small>`:''}</span><span>${sar(i.u*i.q)}</span></li>`).join('')}</ul>
  ${o.notes?`<div class="warn" style="margin:0">📝 ${esc(o.notes)}</div>`:''}
  ${o.points_used>0?`<div class="oh"><span>المجموع ${sar(o.subtotal??(+o.total + +o.points_used))}</span><span class="pd">خصم نقاط −${sar(o.points_used)}</span></div>`:''}
- <div class="oh"><b>${o.points_used>0?'المطلوب':'المجموع'} ${sar(o.total)}</b>${+o.total>0?'<small style="color:var(--mute)">الدفع عند الاستلام</small>':'<span class="paid">مدفوع بالنقاط</span>'}</div>
+ <div class="oh"><b>${paidOn(o)?'المبلغ':o.points_used>0?'المطلوب':'المجموع'} ${sar(o.total)}</b>${paidOn(o)?`<span class="paid">مدفوع ✓ ${o.pay_method=='applepay'?'أبل باي':'بطاقة'}${o.payment=='test'?' (تجربة)':''}</span>`:+o.total>0?'<small style="color:var(--mute)">الدفع عند الاستلام</small>':'<span class="paid">مدفوع بالنقاط</span>'}</div>
  ${n?`<div class="acts"><button class="p" data-id="${o.id}" data-s="${n[0]}">${n[1]}</button>${o.status=='new'?`<button class="s" data-id="${o.id}" data-s="cancelled">رفض</button>`:''}</div>`:''}</div>`;
 }
 async function load(){
@@ -118,7 +120,8 @@ $('#app').onclick=async e=>{const b=e.target.closest('[data-s]');if(!b)return;
  if(b.dataset.s=='cancelled'&&b.dataset.confirm!='1'){b.dataset.confirm='1';b.textContent='متأكد؟';return}
  b.disabled=true;try{await API.setStatus(b.dataset.id,b.dataset.s)}catch(e){}load()};
 
-async function start(){$('#loginBox').hidden=true;$('#app').hidden=false;$('#out').hidden=!API.live;$('#setBtn').hidden=window.JOCKEY_CONFIG.POINTS===false;await load();API.subscribe(load)}
+const syncMenu=()=>API.syncMenu(window.JOCKEY_MENU).catch(()=>{});
+async function start(){syncMenu();setInterval(syncMenu,15*6e4);$('#loginBox').hidden=true;$('#app').hidden=false;$('#out').hidden=!API.live;$('#setBtn').hidden=window.JOCKEY_CONFIG.POINTS===false;await load();API.subscribe(load)}
 
 // إعدادات النقاط
 const dlg=$('#setDlg');
