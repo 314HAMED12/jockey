@@ -1,28 +1,28 @@
 // المنيو. لتغيير سعر أو إضافة صنف عدّل هذا الملف.
 // img: اسم الصورة في مجلد img بدون .jpg (اختياري)
-// opts: الخيارات اللي تطلع للعميل. noOpt: 1 يعني بدون خيارات.
+// السكر يطلع لكل مشروب، إلا اللي عليه noOpt: 1 (القهوة السادة والحلى).
 window.JOCKEY_MENU = {
   options: {
-    sugar: { n: 'السكر', req: true, choices: [['بدون سكر', 0], ['خفيف', 0], ['وسط', 0]] }
+    sugar: { n: 'السكر', req: true, choices: [['بدون سكر', 0], ['خفيف', 0], ['وسط', 0], ['زيادة', 0]] }
   },
   cats: [
     { id: 'sig', n: 'المشروبات المميزة', s: 'توقيع JOCKEY' },
     { id: 'black', n: 'المشروبات السوداء', s: 'قهوة مختصة بدون حليب' },
-    { id: 'milk', n: 'المشروبات بالحليب', s: 'إسبريسو مع حليب مبخر' },
+    { id: 'milk', n: 'المشروبات بالحليب', s: 'إسبريسو مع حليب' },
     { id: 'sweet', n: 'الحلى', s: 'يمشي مع أي فنجان' }
   ],
   items: [
-    { id: 'iced', c: 'sig', n: 'آيس JOCKEY', en: 'Iced Jockey', d: 'مشروب الكافيه المميز.', p: 24, img: 'iced', tag: 'توقيع الكافيه' },
-    { id: 'mat', c: 'sig', n: 'ماتشا', en: 'Matcha', d: 'ماتشا ترابية مع كريمة ناعمة ولمسة حلا.', p: 24, img: 'matcha', tag: 'جديد' },
-    { id: 'fredS', c: 'sig', n: 'إسبريسو الفريدو', en: 'Espresso Freddo', d: 'إسبريسو مخفوق على ثلج.', p: 16 },
-    { id: 'esp', c: 'black', n: 'إسبريسو', en: 'Espresso', d: 'شوت مركز بكريمة كثيفة.', p: 12, img: 'espresso' },
+    { id: 'iced', c: 'sig', n: 'آيس JOCKEY', en: 'Iced Jockey', d: 'مشروب الكافيه المميز.', p: 24, img: 'iced' },
+    { id: 'mat', c: 'sig', n: 'ماتشا', en: 'Matcha', p: 24, img: 'matcha' },
+    { id: 'fredS', c: 'sig', n: 'إسبريسو الفريدو', en: 'Espresso Freddo', p: 16 },
+    { id: 'esp', c: 'black', n: 'إسبريسو', en: 'Espresso', d: 'شوت إسبريسو مركز.', p: 12, img: 'espresso', noOpt: 1 },
     { id: 'amer', c: 'black', n: 'أمريكانو', en: 'Americano', p: 14 },
     { id: 'iamer', c: 'black', n: 'أمريكانو بارد', en: 'Iced Americano', p: 15 },
     { id: 'fred', c: 'black', n: 'إسبريسو الفريدو', en: 'Espresso Freddo', p: 18 },
-    { id: 'cod', c: 'black', n: 'قهوة اليوم', en: 'Coffee of the Day', p: 11 },
-    { id: 'codl', c: 'black', n: 'قهوة اليوم كبير', en: 'Coffee of the Day (L)', p: 13 },
-    { id: 'v60h', c: 'black', n: 'V60 حار', en: 'V60 Hot', p: 20 },
-    { id: 'v60i', c: 'black', n: 'V60 بارد', en: 'V60 Iced', p: 21 },
+    { id: 'cod', c: 'black', n: 'قهوة اليوم', en: 'Coffee of the Day', p: 11, noOpt: 1 },
+    { id: 'codl', c: 'black', n: 'قهوة اليوم كبير', en: 'Coffee of the Day (L)', p: 13, noOpt: 1 },
+    { id: 'v60h', c: 'black', n: 'V60 حار', en: 'V60 Hot', p: 20, noOpt: 1 },
+    { id: 'v60i', c: 'black', n: 'V60 بارد', en: 'V60 Iced', p: 21, noOpt: 1 },
     { id: 'cort', c: 'milk', n: 'كورتادو', en: 'Cortado', p: 14 },
     { id: 'mac', c: 'milk', n: 'ماكياتو', en: 'Macchiato', p: 14 },
     { id: 'flat', c: 'milk', n: 'فلات وايت', en: 'Flat White', p: 16 },
