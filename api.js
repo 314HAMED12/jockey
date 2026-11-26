@@ -5,6 +5,23 @@
   const STATUS = { new: 'وصل الطلب', accepted: 'انقبل', ready: 'جاهز للاستلام', done: 'تم التسليم', cancelled: 'ملغي' };
   const DEFAULTS = { points_enabled: true, earn_per_100: 10 };
   const earnFor = (amount, s) => (s.points_enabled ? Math.floor((amount * s.earn_per_100) / 100 + 1e-9) : 0);
+  // نفس حساب السيرفر: السعر من المنيو، مو من السلة
+  const priceItems = (items, menu) => {
+    const out = []; let sub = 0;
+    if (!Array.isArray(items) || !items.length) throw new Error('empty order');
+    for (const it of items) {
+      const m = menu.items.find((x) => x.id === it.id); if (!m) throw new Error('unknown item');
+      const q = Math.max(1, Math.min(20, it.q | 0));
+      const keys = m.noOpt ? [] : Object.keys(menu.options).sort();
+      let u = m.p; const labels = [];
+      for (const k of keys) {
+        const ch = menu.options[k].choices; let i = (it.o && it.o[k]) | 0; if (i < 0 || i >= ch.length) i = 0;
+        u += ch[i][1]; labels.push(ch[i][0]);
+      }
+      out.push({ id: m.id, n: m.n, opt: labels.join('، '), q, u }); sub += u * q;
+    }
+    return { items: out, subtotal: Math.round(sub * 100) / 100 };
+  };
 
   // ---------- وضع التجربة (localStorage) ----------
   const KEY = 'jockey_orders_v1', CK = 'jockey_customers_v1', SK = 'jockey_session_v1', STK = 'jockey_settings_v1';
@@ -20,17 +37,20 @@
     async placeOrder(o) {
       const a = read(); const no = (a.reduce((m, x) => Math.max(m, x.no), 100)) + 1;
       const s = await demo.getSettings(); const cs = jget(CK, {}); const ph = jget(SK, null); const c = ph && cs[ph];
-      const sub = Math.round((o.subtotal ?? o.total) * 100) / 100;
-      const use = c && s.points_enabled ? Math.max(0, Math.min(o.use_points | 0, c.points, Math.floor(sub))) : 0;
-      const row = Object.assign({}, o, {
+      if (!c || !c.name) throw new Error('login required');
+      const { items, subtotal: sub } = priceItems(o.items, window.JOCKEY_MENU);
+      const use = s.points_enabled ? Math.max(0, Math.min(o.use_points | 0, c.points, Math.floor(sub))) : 0;
+      const pay = o.payment === 'test' && sub - use > 0 ? 'test' : 'cash';
+      const row = {
         id: uid(), no, token: uid(), status: 'new', created_at: now(),
-        subtotal: sub, total: sub - use, points_used: use, points_earned: 0,
-        customer_phone: c ? c.phone : null, phone: c ? c.phone : o.phone
-      });
-      delete row.use_points;
+        order_type: o.order_type, customer_name: String(o.customer_name || '').trim().slice(0, 60), car: o.car || '', table_no: o.table_no || '', notes: o.notes || '',
+        items, subtotal: sub, total: sub - use, points_used: use, points_earned: 0,
+        payment: pay, pay_method: pay === 'test' && ['applepay', 'card'].includes(o.pay_method) ? o.pay_method : null,
+        customer_phone: c.phone, phone: c.phone
+      };
       if (use) { c.points -= use; c.ledger.unshift({ order_no: no, delta: -use, reason: 'redeem', created_at: now() }); jset(CK, cs); }
       a.push(row); write(a);
-      return { no, token: row.token, points_used: use, total: row.total };
+      return { no, token: row.token, points_used: use, subtotal: sub, total: row.total, payment: pay, items };
     },
     async getOrder(token) { return read().find((x) => x.token === token) || null; },
     async signIn() { return { ok: true }; },
@@ -72,7 +92,14 @@
       return c ? { name: c.name, phone: c.phone, points: c.points, ledger: c.ledger.slice(0, 30) } : null;
     },
     async saveName(name) { const ph = jget(SK, null); const cs = jget(CK, {}); if (ph && cs[ph]) { cs[ph].name = name; jset(CK, cs); } },
-    async logout() { try { localStorage.removeItem(SK); } catch (e) {} }
+    async logout() { try { localStorage.removeItem(SK); } catch (e) {} },
+    async deleteMe() {
+      const ph = jget(SK, null); if (!ph) return;
+      const cs = jget(CK, {}); delete cs[ph]; jset(CK, cs);
+      write(read().map((x) => (x.customer_phone === ph ? Object.assign(x, { customer_name: 'عميل محذوف', phone: null, car: null, notes: null, customer_phone: null }) : x)));
+      try { localStorage.removeItem(SK); } catch (e) {}
+    },
+    async syncMenu() {}
   };
 
   // ---------- Supabase ----------
@@ -136,8 +163,10 @@
       return data || { name: '', phone: u.phone, points: 0, ledger: [] };
     },
     async saveName(name) { const { error } = await sb.rpc('save_me', { p_name: name }); if (error) throw error; },
-    async logout() { await sb.auth.signOut(); }
+    async logout() { await sb.auth.signOut(); },
+    async deleteMe() { const { error } = await sb.rpc('delete_me'); if (error) throw error; await sb.auth.signOut(); },
+    async syncMenu(menu) { const { error } = await sb.rpc('sync_menu', { p: { options: menu.options, items: menu.items } }); if (error) throw error; }
   };
 
-  window.JOCKEY_API = Object.assign({ live, STATUS, earnFor }, live ? real : demo);
+  window.JOCKEY_API = Object.assign({ live, STATUS, earnFor, priceItems }, live ? real : demo);
 })();
