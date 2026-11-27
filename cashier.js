@@ -24,7 +24,7 @@ function card(o){
  ${o.notes?`<div class="warn" style="margin:0">📝 ${esc(o.notes)}</div>`:''}
  ${o.points_used>0?`<div class="oh"><span>المجموع ${sar(o.subtotal??(+o.total + +o.points_used))}</span><span class="pd">خصم نقاط −${sar(o.points_used)}</span></div>`:''}
  <div class="oh"><b>${paidOn(o)?'المبلغ':o.points_used>0?'المطلوب':'المجموع'} ${sar(o.total)}</b>${paidOn(o)?`<span class="paid">مدفوع ✓ ${o.pay_method=='applepay'?'أبل باي':'بطاقة'}${o.payment=='test'?' (تجربة)':''}</span>`:+o.total>0?'<small style="color:var(--mute)">الدفع عند الاستلام</small>':'<span class="paid">مدفوع بالنقاط</span>'}</div>
- ${n?`<div class="acts"><button class="p" data-id="${o.id}" data-s="${n[0]}">${n[1]}</button>${o.status=='new'?`<button class="s" data-id="${o.id}" data-s="cancelled">رفض</button>`:''}</div>`:''}</div>`;
+ ${n?`<div class="acts"><button class="p" data-id="${o.id}" data-s="${n[0]}">${n[1]}</button><button class="s" data-id="${o.id}" data-s="cancelled" data-paid="${paidOn(o)?1:''}">${o.status=='new'?'رفض':'إلغاء'}</button></div>`:''}</div>`;
 }
 async function load(){
  let list=[];try{list=await API.listOrders()}catch(e){return}
@@ -35,21 +35,24 @@ async function load(){
  document.title=(ids.size?`(${ids.size}) `:'')+'JOCKEY | شاشة الكاشير';
 }
 $('#app').onclick=async e=>{const b=e.target.closest('[data-s]');if(!b)return;
- if(b.dataset.s=='cancelled'&&b.dataset.confirm!='1'){b.dataset.confirm='1';b.textContent='متأكد؟';return}
+ if(b.dataset.s=='cancelled'&&b.dataset.confirm!='1'){b.dataset.confirm='1';b.textContent=b.dataset.paid?'متأكد؟ الطلب مدفوع: رجّع المبلغ للزبون':'متأكد؟';return}
  b.disabled=true;try{await API.setStatus(b.dataset.id,b.dataset.s)}catch(e){}load()};
 
 const syncMenu=()=>API.syncMenu(window.JOCKEY_MENU).catch(()=>{});
-async function start(){syncMenu();setInterval(syncMenu,15*6e4);$('#loginBox').hidden=true;$('#app').hidden=false;$('#out').hidden=!API.live;$('#setBtn').hidden=window.JOCKEY_CONFIG.POINTS===false;await load();API.subscribe(load)}
+async function start(){syncMenu();setInterval(syncMenu,15*6e4);$('#loginBox').hidden=true;$('#app').hidden=false;$('#out').hidden=!API.live;$('#setBtn').hidden=false;await load();API.subscribe(load)}
 
 // إعدادات النقاط
 const dlg=$('#setDlg');
 const toEn=s=>String(s||'').replace(/[٠-٩]/g,d=>'٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace('٫','.');
 const ex=()=>{const r=parseFloat(toEn($('#sRate').value));$('#sEx').textContent=$('#sEn').checked&&r>=0?`مثال: طلب بـ 50 ريال يعطي ${Math.floor(50*r/100+1e-9)} نقاط، وطلب بـ 200 ريال يعطي ${Math.floor(200*r/100+1e-9)} نقطة.`:'النقاط موقفة: الزبون ما يجمع ولا يصرف.'};
-$('#setBtn').onclick=async()=>{const s=await API.getSettings();$('#sEn').checked=!!s.points_enabled;$('#sRate').value=+s.earn_per_100;$('#serr').hidden=true;ex();dlg.showModal()};
+$('#setBtn').onclick=async()=>{const s=await API.getSettings();$('#sEn').checked=!!s.points_enabled;$('#sRate').value=+s.earn_per_100;$('#sPay').checked=!!s.test_pay;$('#sOpen').value=s.open_hour;$('#sClose').value=s.close_hour;$('#serr').hidden=true;ex();dlg.showModal()};
 $('#setForm').oninput=ex;$('#sCancel').onclick=()=>dlg.close();
-$('#setForm').onsubmit=async e=>{e.preventDefault();const r=parseFloat(toEn($('#sRate').value));
- if(!(r>=0&&r<=100)){$('#serr').textContent='اكتب رقم من 0 إلى 100';$('#serr').hidden=false;return}
- try{await API.saveSettings({points_enabled:$('#sEn').checked,earn_per_100:r});dlg.close()}catch(err){$('#serr').textContent='ما قدرنا نحفظ، جرّب مرة ثانية';$('#serr').hidden=false}};
+$('#setForm').onsubmit=async e=>{e.preventDefault();const r=parseFloat(toEn($('#sRate').value)),o=+toEn($('#sOpen').value),c=+toEn($('#sClose').value);
+ const bad=t=>{$('#serr').textContent=t;$('#serr').hidden=false};
+ if(!(Number.isInteger(o)&&o>=0&&o<=23))return bad('ساعة الفتح: اكتب رقم من 0 إلى 23');
+ if(!(Number.isInteger(c)&&c>=1&&c<=24&&c!=o))return bad('ساعة القفل: اكتب رقم من 1 إلى 24، ومختلف عن ساعة الفتح');
+ if(!(r>=0&&r<=100))return bad('النقاط: اكتب رقم من 0 إلى 100');
+ try{await API.saveSettings({points_enabled:$('#sEn').checked,earn_per_100:r,test_pay:$('#sPay').checked,open_hour:o,close_hour:c});dlg.close()}catch(err){$('#serr').textContent='ما قدرنا نحفظ، جرّب مرة ثانية';$('#serr').hidden=false}};
 $('#login').onsubmit=async e=>{e.preventDefault();const r=await API.signIn($('#em').value.trim(),$('#pw').value);if(r.ok)start();else{$('#lerr').textContent=r.msg;$('#lerr').hidden=false}};
 $('#out').onclick=async()=>{await API.signOut();location.reload()};
 (async()=>{if(await API.session())start();else $('#loginBox').hidden=false})();

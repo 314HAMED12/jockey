@@ -13,11 +13,12 @@ const CASH='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-wi
 const CARD='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="2.5" y="5" width="19" height="14" rx="2.5"/><path d="M2.5 9.5h19M6 15h4"/></svg>';
 const SHIELD='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 3l8 3v6c0 4.5-3.4 8-8 9-4.6-1-8-4.5-8-9V6z"/><path d="M8.5 12l2.5 2.5 4.5-5"/></svg>';
 const APPLE='<svg viewBox="0 0 384 512" fill="currentColor" aria-hidden="true"><path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184.8 4 273.5q0 39.3 14.4 81.2c12.8 36.7 59 126.7 107.2 125.2 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-82.5 102.6-119.3-65.2-30.7-61.7-90-61.7-91.9zm-56.6-164.2c27.3-32.4 24.8-61.9 24-72.5-24.1 1.4-52 16.4-67.9 34.9-17.5 19.8-27.8 44.3-25.6 71.9 26.1 2 49.9-11.4 69.5-34.3z"/></svg>';
-const PAY_ON=C.PAY_ONLINE!=='off';
+// الدفع التجريبي يطلع بس لو مشغّل هنا وفي إعدادات الكاشير
+const payOn=()=>C.PAY_ONLINE!=='off'&&!!S.test_pay;
 const TYPES={pickup:'استلام من الكافيه',car:'من السيارة',dinein:'داخل الكافيه'};
 const CUP='<svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 24h34v14a15 15 0 0 1-15 15h-4a15 15 0 0 1-15-15z"/><path d="M46 28h4a6 6 0 0 1 0 12h-5"/><path d="M22 8c-2 4 2 6 0 10M30 8c-2 4 2 6 0 10M38 8c-2 4 2 6 0 10"/></svg>';
 let cart=store.get('cart',[]),type=store.get('type',null),me=store.get('me',{name:'',phone:'',car:''});
-let S={points_enabled:C.POINTS!==false,earn_per_100:10},ME=null;
+let S={points_enabled:C.POINTS!==false,earn_per_100:10,test_pay:false,open_hour:13,close_hour:24},ME=null;
 const num=n=>String(+(+n).toFixed(2));
 const earnOf=amt=>API.earnFor(amt,S);
 const pts=n=>n==1?'نقطة':n==2?'نقطتين':n>=3&&n<=10?n+' نقاط':n+' نقطة';
@@ -27,7 +28,9 @@ $('#addr').textContent=C.CITY+'، '+C.ADDRESS;$('#hours').textContent=C.HOURS;
 $('#ig').textContent='@'+C.INSTAGRAM;$('#ig').href='https://www.instagram.com/'+C.INSTAGRAM+'/';
 $('#city').textContent='قهوة مختصة · '+C.CITY;
 $('#foot').innerHTML=esc((API.live?'':'وضع تجربة: الطلبات والحسابات تنحفظ على هذا الجهاز فقط. ')+'JOCKEY Coffee House · '+C.CITY)+' · <a href="privacy.html" style="color:inherit">الخصوصية</a>';
-const isOpen=()=>{const h=+new Intl.DateTimeFormat('en-GB',{hour:'numeric',hourCycle:'h23',timeZone:'Asia/Riyadh'}).format(new Date());return h>=13};
+const isOpen=()=>API.isOpen(S);
+const hourTxt=h=>{h=+h%24;const t=h%12||12;return t+' '+(h<5?'الليل':h<12?'الصبح':h<16?'الظهر':h<19?'العصر':'الليل')};
+const closedTxt=()=>`الكافيه مقفل الحين. نستقبل الطلبات من ${hourTxt(S.open_hour)} إلى ${hourTxt(S.close_hour)}.`;
 
 // الجوال: يقبل الأرقام العربية و 05 أو 5 أو 966
 const toEn=s=>String(s||'').replace(/[٠-٩]/g,d=>'٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/[۰-۹]/g,d=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(d));
@@ -233,11 +236,11 @@ function showCart(){
  <label class="f"><span>ملاحظات</span><textarea id="nt" rows="2" placeholder="أي طلب خاص">${esc(draft.nt||'')}</textarea></label>
  ${canUse?`<label class="usep">${COIN}<span><b>استخدم نقاطي</b><small>عندك ${pts(ME.points)} = ${sar(ME.points)}</small></span><input type="checkbox" class="sw" id="usep" ${usePts?'checked':''}></label>`:''}
  <div class="sum" id="sum"></div>
- ${PAY_ON?`<fieldset class="paym" id="paym"><legend>طريقة الدفع</legend>
+ ${payOn()?`<fieldset class="paym" id="paym"><legend>طريقة الدفع</legend>
   <label class="pm"><input type="radio" name="pay" value="cash" ${payWay=='cash'?'checked':''}>${CASH}<span><b>الدفع عند الاستلام</b><small>كاش أو شبكة في الكافيه</small></span></label>
   <label class="pm"><input type="radio" name="pay" value="now" ${payWay=='now'?'checked':''}>${CARD}<span><b>ادفع الحين</b><small>أبل باي، مدى، فيزا، ماستركارد</small></span></label>
  </fieldset>`:''}
- ${isOpen()?'':'<div class="warn">الكافيه مقفل الحين، يفتح الساعة 1 الظهر.</div>'}
+ ${isOpen()?'':`<div class="warn">${closedTxt()}</div>`}
  <div class="err" id="err" hidden></div>
  <button class="go" id="send"><span>أرسل الطلب · الدفع عند الاستلام</span><span id="pay"></span></button>`
  :`
@@ -245,9 +248,10 @@ function showCart(){
  <div class="need">${COIN}<div><b>سجّل برقم جوالك وكمّل طلبك</b><small>${S.points_enabled?`دقيقة وحدة، وتكسب ${pts(earnOf(sub))} من هالطلب`:'دقيقة وحدة، وبدون كلمة مرور'}</small></div></div>
  <button class="go" data-login><span>سجّل وكمّل الطلب</span><span>←</span></button>`}`);
  const upd=()=>{if(!logged())return;const use=canUse&&usePts?Math.min(ME.points,Math.floor(sub)):0,pay=sub-use,earn=earnOf(pay);
-  $('#sum').innerHTML=`${use?`<div><span>المجموع</span><span>${sar(sub)}</span></div><div class="disc"><span>خصم النقاط</span><span dir="ltr">−${sar(use)}</span></div>`:''}<div class="tot"><span>${!use?'المجموع':!pay?'مدفوع بالكامل بالنقاط':payWay=='now'&&PAY_ON?'المطلوب':'المطلوب عند الاستلام'}</span><span>${sar(pay)}</span></div>${earn>0?`<div class="earn">${STAR}<span>بتكسب <b>${pts(earn)}</b> من هالطلب بعد الاستلام</span></div>`:''}`;
+  $('#sum').innerHTML=`${use?`<div><span>المجموع</span><span>${sar(sub)}</span></div><div class="disc"><span>خصم النقاط</span><span dir="ltr">−${sar(use)}</span></div>`:''}<div class="tot"><span>${!use?'المجموع':!pay?'مدفوع بالكامل بالنقاط':payWay=='now'&&payOn()?'المطلوب':'المطلوب عند الاستلام'}</span><span>${sar(pay)}</span></div>${earn>0?`<div class="earn">${STAR}<span>بتكسب <b>${pts(earn)}</b> من هالطلب بعد الاستلام</span></div>`:''}`;
   const pm=$('#paym');if(pm)pm.hidden=!pay;
-  $('#pay').textContent=sar(pay);$('#send').firstElementChild.textContent=!pay?'أرسل الطلب':payWay=='now'&&PAY_ON?'ادفع وأرسل الطلب':'أرسل الطلب · الدفع عند الاستلام'};
+  $('#send').disabled=!isOpen();
+  $('#pay').textContent=sar(pay);$('#send').firstElementChild.textContent=!pay?'أرسل الطلب':payWay=='now'&&payOn()?'ادفع وأرسل الطلب':'أرسل الطلب · الدفع عند الاستلام'};
  upd();
  sheet.onchange=e=>{if(e.target.id=='usep'){usePts=e.target.checked;upd()}if(e.target.name=='pay'){payWay=e.target.value;upd()}};
  sheet.onclick=e=>{if(e.target.closest('[data-x]'))return close();if(e.target.closest('[data-type]'))return chooseType(showCart);
@@ -262,11 +266,11 @@ async function send(sub){
  draft={car:o.car,tbl:o.table_no,nt:o.notes};
  const bad=o.customer_name.length<2?'اكتب اسمك عشان ننادي عليك':type=='car'&&o.car.length<2?'اكتب نوع ولون سيارتك':type=='dinein'&&!o.table_no?'اكتب رقم الطاولة':'';
  if(bad){err.textContent=bad;err.hidden=false;return}
- if(PAY_ON&&payWay=='now'&&pay>0)return showPay(pay,method=>place(Object.assign(o,{payment:'test',pay_method:method})));
+ if(payOn()&&payWay=='now'&&pay>0)return showPay(pay,method=>place(Object.assign(o,{payment:'test',pay_method:method})));
  btn.disabled=true;btn.firstElementChild.textContent='جاري الإرسال...';
  try{await place(o)}catch(e){err.textContent=orderErr(e);err.hidden=false;btn.disabled=false;btn.firstElementChild.textContent='أرسل الطلب'}
 }
-const orderErr=e=>/too many open/.test(e&&e.message||'')?'عندك 3 طلبات قيد التجهيز. انتظر لين يخلص واحد منها وبعدها اطلب.':/too fast/.test(e&&e.message||'')?'طلبك اللي قبل وصل قبل ثواني. انتظر شوي وجرّب.':/menu not synced|unknown item/.test(e&&e.message||'')?'المنيو يتحدث الحين، جرّب بعد دقيقة.':/login|phone/.test(e&&e.message||'')?'سجّل دخولك مرة ثانية وكمّل.':'ما قدرنا نرسل الطلب، جرّب مرة ثانية.';
+const orderErr=e=>/cafe closed/.test(e&&e.message||'')?closedTxt():/too many open/.test(e&&e.message||'')?'عندك 3 طلبات قيد التجهيز. انتظر لين يخلص واحد منها وبعدها اطلب.':/too fast/.test(e&&e.message||'')?'طلبك اللي قبل وصل قبل ثواني. انتظر شوي وجرّب.':/menu not synced|unknown item/.test(e&&e.message||'')?'المنيو يتحدث الحين، جرّب بعد دقيقة.':/login|phone/.test(e&&e.message||'')?'سجّل دخولك مرة ثانية وكمّل.':'ما قدرنا نرسل الطلب، جرّب مرة ثانية.';
 async function place(o){
  const r=await API.placeOrder(o);
  const saved={order_type:o.order_type,customer_name:o.customer_name,phone:o.phone,car:o.car,table_no:o.table_no,notes:o.notes,
@@ -331,7 +335,7 @@ async function showTrack(token){
  const draw=async()=>{let st='new',r=null;try{r=await API.getOrder(token);if(r)st=r.status}catch(e){}
   if(veil.hidden||!sheet.querySelector('[data-track]'))return;
   const idx=st=='done'?3:STEPS.findIndex(s=>s[0]==st);
-  sheet.querySelector('[data-track]').innerHTML=st=='cancelled'?`<div class="err">انلغى الطلب. ${m.o.points_used?'نقاطك رجعت لمحفظتك. ':''}كلّم الكافيه لو عندك سؤال.</div>`:STEPS.map(([k,l],i)=>`<div class="step ${i<=idx?'on':''}"><i>${i<idx||st=='done'?'✓':i+1}</i>${l}${k=='ready'&&m.o.order_type=='car'?'، بنجيبه لسيارتك':''}</div>`).join('')+(st=='done'?'<p class="note">تم التسليم، بالعافية ☕</p>':'');
+  sheet.querySelector('[data-track]').innerHTML=st=='cancelled'?`<div class="err">انلغى الطلب. ${m.o.points_used?'نقاطك رجعت لمحفظتك. ':''}${paidTxt(m.o)?'المبلغ اللي دفعته يرجع لك من الكافيه. ':''}كلّم الكافيه لو عندك سؤال.</div>`:STEPS.map(([k,l],i)=>`<div class="step ${i<=idx?'on':''}"><i>${i<idx||st=='done'?'✓':i+1}</i>${l}${k=='ready'&&m.o.order_type=='car'?'، بنجيبه لسيارتك':''}</div>`).join('')+(st=='done'?'<p class="note">تم التسليم، بالعافية ☕</p>':'');
   const got=r&&r.points_earned,will=earnOf(m.o.total);
   sheet.querySelector('[data-pts]').innerHTML=st=='done'&&got?`<div class="earned">${COIN}<span>انضافت لمحفظتك <b>${pts(got)}</b></span></div>`:st!='cancelled'&&logged()&&will>0?`<div class="earn">${STAR}<span>بتنضاف لك <b>${pts(will)}</b> بعد الاستلام</span></div>`:'';
   if(st=='done'&&got&&!credited){credited=true;loadMe()}

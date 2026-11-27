@@ -7,7 +7,7 @@
 <title>JOCKEY | شاشة الكاشير</title>
 <meta name="robots" content="noindex">
 <link rel="icon" href="img/logo.jpg">
-<link rel="stylesheet" href="style.css?v=10">
+<link rel="stylesheet" href="style.css?v=11">
 <style>
 .board{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;padding-block:20px}
 .col h2{font-size:20px;display:flex;gap:8px;align-items:center;margin-bottom:12px}
@@ -46,7 +46,7 @@ dialog.set .login{margin:0;max-width:none}
   <img class="logo" src="img/logo.jpg" alt="">
   <div class="brand lat">JOCKEY ♞<small>شاشة الكاشير</small></div>
   <button class="sound" id="snd" style="margin-inline-start:auto">🔔 فعّل التنبيه</button>
-  <button class="sound" id="setBtn" hidden>★ النقاط</button>
+  <button class="sound" id="setBtn" hidden>⚙ الإعدادات</button>
   <button class="sound" id="out" hidden>خروج</button>
 </div></header>
 
@@ -68,8 +68,13 @@ dialog.set .login{margin:0;max-width:none}
 </div></main>
 
 <dialog class="set" id="setDlg"><form class="login" id="setForm">
-  <h2 style="font-size:22px">إعدادات النقاط</h2>
-  <label class="usep" style="margin-top:14px"><span><b>النقاط شغالة</b><small>الزبون يجمع نقاط ويخصمها من طلباته</small></span><input type="checkbox" class="sw" id="sEn"></label>
+  <h2 style="font-size:22px">الإعدادات</h2>
+  <h4 style="margin-top:14px">أوقات استقبال الطلبات</h4>
+  <div class="rate">من الساعة <input type="text" id="sOpen" inputmode="numeric"> إلى <input type="text" id="sClose" inputmode="numeric"></div>
+  <p class="note">بنظام 24 ساعة بتوقيت السعودية. مثال: من 13 (1 الظهر) إلى 24 (12 الليل). برا هالوقت الزبون ما يقدر يرسل طلب.</p>
+  <label class="usep" style="margin-top:14px"><span><b>شاشة الدفع التجريبية</b><small>للعرض بس: ما تسحب فلوس. طفّها قبل ما يطلب زباين حقيقيين</small></span><input type="checkbox" class="sw" id="sPay"></label>
+  <h4 style="margin-top:14px">النقاط</h4>
+  <label class="usep" style="margin-top:8px"><span><b>النقاط شغالة</b><small>الزبون يجمع نقاط ويخصمها من طلباته</small></span><input type="checkbox" class="sw" id="sEn"></label>
   <div class="f"><span>كم نقطة يكسب الزبون؟</span><div class="rate">كل 100 ريال = <input type="text" id="sRate" inputmode="decimal"> نقاط</div></div>
   <p class="note" id="sEx"></p>
   <p class="note">النقطة = ريال. النقاط تنضاف لما تضغط "تم التسليم"، وترجع للزبون لو رفضت طلبه.</p>
@@ -79,9 +84,9 @@ dialog.set .login{margin:0;max-width:none}
 </form></dialog>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js" integrity="sha384-TcHRA3zBbn+Lexh5n+Oil4guNPOS3rjNDpGRAN46u/s/mB2IZ50ceC6TYDU2yvgK" crossorigin="anonymous"></script>
-<script src="config.js?v=10"></script>
-<script src="menu.js?v=10"></script>
-<script src="api.js?v=10"></script>
-<script src="cashier.js?v=10"></script>
+<script src="config.js?v=11"></script>
+<script src="menu.js?v=11"></script>
+<script src="api.js?v=11"></script>
+<script src="cashier.js?v=11"></script>
 </body>
 </html>

@@ -21,6 +21,9 @@ create table if not exists public.settings (
   points_enabled boolean not null default true,
   earn_per_100 numeric(6,2) not null default 10 check (earn_per_100 >= 0 and earn_per_100 <= 100)
 );
+alter table public.settings add column if not exists test_pay boolean not null default true;
+alter table public.settings add column if not exists open_hour int not null default 13 check (open_hour between 0 and 23);
+alter table public.settings add column if not exists close_hour int not null default 24 check (close_hour between 1 and 24);
 insert into public.settings (id) values (1) on conflict do nothing;
 alter table public.settings enable row level security;
 drop policy if exists settings_read on public.settings;
@@ -144,7 +147,7 @@ create or replace function public.place_order(p jsonb)
 returns jsonb language plpgsql security definer set search_path = public as $$
 declare
   r public.orders; c public.customers; s public.settings;
-  v_items jsonb; v_sub numeric; v_use int := 0; v_pay text;
+  v_items jsonb; v_sub numeric; v_use int := 0; v_pay text; v_h int;
 begin
   if auth.uid() is null then raise exception 'login required'; end if;
   select * into c from public.customers where id = auth.uid() for update;
@@ -159,13 +162,20 @@ begin
   if exists (select 1 from public.orders where customer_id = c.id and created_at > now() - interval '20 seconds') then
     raise exception 'too fast'; end if;
 
+  -- الكافيه مقفل؟ (بتوقيت السعودية، الساعات من إعدادات الكاشير)
+  select * into s from public.settings where id = 1;
+  v_h := extract(hour from now() at time zone 'Asia/Riyadh')::int;
+  if not (case when s.open_hour < s.close_hour then v_h >= s.open_hour and v_h < s.close_hour
+               else v_h >= s.open_hour or v_h < s.close_hour end) then
+    raise exception 'cafe closed'; end if;
+
   select pi.items, pi.subtotal into v_items, v_sub from public.price_items(p->'items') pi;
 
-  select * into s from public.settings where id = 1;
   if coalesce(s.points_enabled, false) then
     v_use := greatest(0, least(coalesce((p->>'use_points')::int, 0), c.points, floor(v_sub)::int));
   end if;
-  v_pay := case when p->>'payment' = 'test' and v_sub - v_use > 0 then 'test' else 'cash' end;
+  -- الدفع التجريبي ما ينقبل إلا لو الكاشير مشغّله
+  v_pay := case when p->>'payment' = 'test' and s.test_pay and v_sub - v_use > 0 then 'test' else 'cash' end;
 
   insert into public.orders(order_type, customer_name, phone, car, table_no, notes, items, subtotal, total,
                             customer_id, points_used, payment, pay_method)
@@ -267,7 +277,7 @@ grant execute on function public.save_me(text) to authenticated;
 -- صلاحيات الجداول: بس اللي يحتاجه الموقع، وفوقها قواعد RLS
 revoke all on public.staff, public.settings, public.menu, public.customers, public.points_ledger, public.orders from public, anon, authenticated;
 grant select on public.settings, public.menu to anon, authenticated;
-grant update (points_enabled, earn_per_100) on public.settings to authenticated;
+grant update (points_enabled, earn_per_100, test_pay, open_hour, close_hour) on public.settings to authenticated;
 grant select on public.customers, public.points_ledger, public.orders to authenticated;
 grant update (status) on public.orders to authenticated;
 
