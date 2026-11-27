@@ -3,7 +3,12 @@
   const C = window.JOCKEY_CONFIG;
   const live = !!(C.SUPABASE_URL && C.SUPABASE_ANON_KEY && window.supabase);
   const STATUS = { new: 'وصل الطلب', accepted: 'انقبل', ready: 'جاهز للاستلام', done: 'تم التسليم', cancelled: 'ملغي' };
-  const DEFAULTS = { points_enabled: true, earn_per_100: 10 };
+  const DEFAULTS = { points_enabled: true, earn_per_100: 10, test_pay: false, open_hour: 13, close_hour: 24 };
+  const hourNow = () => +new Intl.DateTimeFormat('en-GB', { hour: 'numeric', hourCycle: 'h23', timeZone: 'Asia/Riyadh' }).format(new Date());
+  // نفس فحص السيرفر: الكافيه مفتوح الحين؟
+  const isOpen = (s) => { const h = hourNow(), o = +s.open_hour, c = +s.close_hour; return o < c ? h >= o && h < c : h >= o || h < c; };
+  const cleanSettings = (s) => ({ points_enabled: !!s.points_enabled, earn_per_100: +s.earn_per_100, test_pay: !!s.test_pay,
+    open_hour: Math.max(0, Math.min(23, s.open_hour | 0)), close_hour: Math.max(1, Math.min(24, s.close_hour | 0)) });
   const earnFor = (amount, s) => (s.points_enabled ? Math.floor((amount * s.earn_per_100) / 100 + 1e-9) : 0);
   // نفس حساب السيرفر: السعر من المنيو، مو من السلة
   const priceItems = (items, menu) => {
@@ -38,12 +43,13 @@
       const a = read(); const no = (a.reduce((m, x) => Math.max(m, x.no), 100)) + 1;
       const s = await demo.getSettings(); const cs = jget(CK, {}); const ph = jget(SK, null); const c = ph && cs[ph];
       if (!c || !c.name) throw new Error('login required');
+      if (!isOpen(s)) throw new Error('cafe closed');
       const mineOpen = a.filter((x) => x.customer_phone === c.phone && ['new', 'accepted', 'ready'].includes(x.status));
       if (mineOpen.length >= 3) throw new Error('too many open orders');
       if (a.some((x) => x.customer_phone === c.phone && Date.now() - new Date(x.created_at) < 20000)) throw new Error('too fast');
       const { items, subtotal: sub } = priceItems(o.items, window.JOCKEY_MENU);
       const use = s.points_enabled ? Math.max(0, Math.min(o.use_points | 0, c.points, Math.floor(sub))) : 0;
-      const pay = o.payment === 'test' && sub - use > 0 ? 'test' : 'cash';
+      const pay = o.payment === 'test' && s.test_pay && sub - use > 0 ? 'test' : 'cash';
       const row = {
         id: uid(), no, token: uid(), status: 'new', created_at: now(),
         order_type: o.order_type, customer_name: String(o.customer_name || '').trim().slice(0, 60), car: o.car || '', table_no: o.table_no || '', notes: o.notes || '',
@@ -78,8 +84,8 @@
     subscribe(cb) { window.addEventListener('storage', (e) => { if (e.key === KEY) cb(); }); const t = setInterval(cb, 4000); return () => clearInterval(t); },
 
     // الحساب والنقاط
-    async getSettings() { return Object.assign({}, DEFAULTS, jget(STK, {})); },
-    async saveSettings(s) { jset(STK, { points_enabled: !!s.points_enabled, earn_per_100: +s.earn_per_100 }); },
+    async getSettings() { return Object.assign({}, DEFAULTS, { test_pay: true }, jget(STK, {})); },
+    async saveSettings(s) { jset(STK, cleanSettings(s)); },
     async sendCode(phone) {
       const code = String(Math.floor(100000 + Math.random() * 900000));
       pending = { phone, code };
@@ -145,11 +151,13 @@
 
     // الحساب والنقاط
     async getSettings() {
-      const { data } = await sb.from('settings').select('points_enabled,earn_per_100').eq('id', 1).maybeSingle();
+      // لو قاعدة البيانات قديمة (ما فيها الأعمدة الجديدة) نرجع للقراءة القديمة، والدفع التجريبي يطفى
+      let { data, error } = await sb.from('settings').select('points_enabled,earn_per_100,test_pay,open_hour,close_hour').eq('id', 1).maybeSingle();
+      if (error) ({ data } = await sb.from('settings').select('points_enabled,earn_per_100').eq('id', 1).maybeSingle());
       return Object.assign({}, DEFAULTS, data || {}, data ? { earn_per_100: +data.earn_per_100 } : {});
     },
     async saveSettings(s) {
-      const { error } = await sb.from('settings').update({ points_enabled: !!s.points_enabled, earn_per_100: +s.earn_per_100 }).eq('id', 1);
+      const { error } = await sb.from('settings').update(cleanSettings(s)).eq('id', 1);
       if (error) throw error;
     },
     async sendCode(phone) {
@@ -172,5 +180,5 @@
     async syncMenu(menu) { const { error } = await sb.rpc('sync_menu', { p: { options: menu.options, items: menu.items } }); if (error) throw error; }
   };
 
-  window.JOCKEY_API = Object.assign({ live, STATUS, earnFor, priceItems }, live ? real : demo);
+  window.JOCKEY_API = Object.assign({ live, STATUS, earnFor, priceItems, isOpen }, live ? real : demo);
 })();
